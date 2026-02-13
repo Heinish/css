@@ -18,6 +18,15 @@ app = Flask(__name__, static_folder='static')
 CONFIG_FILE = '/etc/css/config.json'
 FULLPAGEOS_CONFIG = '/boot/firmware/fullpageos.txt'
 
+# Disable caching for all responses
+@app.after_request
+def add_no_cache_headers(response):
+    """Add headers to prevent caching"""
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 def is_fullpageos():
     """Check if running on FullPageOS"""
     return os.path.exists(FULLPAGEOS_CONFIG)

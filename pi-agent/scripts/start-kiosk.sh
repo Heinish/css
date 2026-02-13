@@ -32,6 +32,12 @@ fi
 sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' ~/.config/chromium/Default/Preferences 2>/dev/null
 sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' ~/.config/chromium/Default/Preferences 2>/dev/null
 
+# Clear Chromium cache to prevent stale content
+echo "Clearing Chromium cache..."
+rm -rf ~/.config/chromium/Default/Cache/* 2>/dev/null
+rm -rf ~/.config/chromium/Default/Code\ Cache/* 2>/dev/null
+rm -rf ~/.cache/chromium/* 2>/dev/null
+
 # Launch Chromium in kiosk mode
 # Detect if running Wayland (Raspberry Pi 5) or X11 (Raspberry Pi 4 and older)
 OZONE_FLAGS=""
@@ -58,4 +64,9 @@ chromium "$URL" \
   --no-default-browser-check \
   --autoplay-policy=no-user-gesture-required \
   --disable-pinch \
-  --overscroll-history-navigation=0
+  --overscroll-history-navigation=0 \
+  --disk-cache-size=1 \
+  --media-cache-size=1 \
+  --disable-application-cache \
+  --disable-offline-load-stale-cache \
+  --disable-gpu-shader-disk-cache
