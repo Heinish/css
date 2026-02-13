@@ -51,8 +51,8 @@ CSS (Cheap Signage Solutions) allows you to turn Raspberry Pi devices into dedic
 
 2. **Clone this repository on the Pi**
    ```bash
-   git clone https://github.com/your-org/cheap-signage-solutions.git
-   cd cheap-signage-solutions/pi-agent
+   git clone https://github.com/your-org/css.git
+   cd css/pi-agent
    ```
 
 3. **Run installation script**
@@ -220,7 +220,7 @@ hostname -I
 ## 📂 Project Structure
 
 ```
-cheap-signage-solutions/
+css/
 ├── pi-agent/              # Raspberry Pi agent code
 │   ├── server.py          # Flask REST API
 │   ├── requirements.txt   # Python dependencies
