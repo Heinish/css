@@ -74,15 +74,15 @@ systemctl start css-agent.service
 echo ""
 echo "Step 8: Configuring FullPageOS to use CSS..."
 # Update FullPageOS config to point to our API
-if [ -f /boot/fullpageos.txt ]; then
+if [ -f /boot/firmware/fullpageos.txt ]; then
     # Backup original
-    cp /boot/fullpageos.txt /boot/fullpageos.txt.backup
+    cp /boot/firmware/fullpageos.txt /boot/firmware/fullpageos.txt.backup
 
-    # Update URL to point to localhost
-    sed -i 's|^url=.*|url=http://localhost:5000/waiting|' /boot/fullpageos.txt
+    # Update URL to point to localhost (file contains just the URL, no key-value format)
+    echo "http://localhost:5000/waiting" > /boot/firmware/fullpageos.txt
     echo "Updated FullPageOS configuration"
 else
-    echo "Warning: /boot/fullpageos.txt not found - you may need to configure FullPageOS manually"
+    echo "Warning: /boot/firmware/fullpageos.txt not found - you may need to configure FullPageOS manually"
 fi
 
 echo ""
@@ -96,7 +96,8 @@ echo ""
 echo "Configuration file: /etc/css/config.json"
 echo ""
 echo "To restart the browser with new settings:"
-echo "  sudo systemctl restart fullpageos"
+echo "  sudo pkill chromium"
+echo "  (or reboot: sudo reboot)"
 echo ""
 echo "To check API status:"
 echo "  sudo systemctl status css-agent"
@@ -105,8 +106,8 @@ echo "Next steps:"
 echo "1. Add this Pi to your CSS Dashboard"
 echo "2. Configure display URL via dashboard"
 echo ""
-read -p "Would you like to restart FullPageOS browser now? (y/N) " -n 1 -r
+read -p "Would you like to restart Chromium now? (y/N) " -n 1 -r
 echo
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    systemctl restart fullpageos
+    pkill chromium
 fi
