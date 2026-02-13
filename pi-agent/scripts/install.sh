@@ -109,8 +109,14 @@ echo "Step 8.5: Configuring log rotation to prevent SD card filling..."
 
 echo ""
 echo "Step 9: Configuring auto-login (for kiosk mode)..."
-# Enable auto-login to desktop for user 'pi'
-raspi-config nonint do_boot_behaviour B4
+# Skip auto-login on FullPageOS (it manages its own kiosk mode)
+if [ -f /boot/firmware/fullpageos.txt ]; then
+    echo "FullPageOS detected - skipping auto-login configuration (FullPageOS handles this)"
+else
+    # Enable auto-login to desktop for user 'pi' on standard Raspberry Pi OS
+    raspi-config nonint do_boot_behaviour B4
+    echo "Auto-login configured for user: $ACTUAL_USER"
+fi
 
 echo ""
 echo "Step 10: Skipping desktop autostart (use systemd services instead)..."
