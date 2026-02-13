@@ -17,20 +17,35 @@ fi
 echo "CSS Kiosk starting with URL: $URL"
 
 # Disable screen blanking and power management
-xset s off
-xset -dpms
-xset s noblank
+# Check if we're running on X11 or Wayland
+if [ -n "$DISPLAY" ] && command -v xset >/dev/null 2>&1; then
+    # X11 - use xset
+    xset s off
+    xset -dpms
+    xset s noblank
+fi
+
+# For Wayland (Raspberry Pi 5), screen blanking is controlled by wlr-randr or compositor settings
+# The Wayland compositor should respect DPMS settings from the desktop environment
 
 # Remove any crash flags from previous sessions
 sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' ~/.config/chromium/Default/Preferences 2>/dev/null
 sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' ~/.config/chromium/Default/Preferences 2>/dev/null
 
 # Launch Chromium in kiosk mode
+# Detect if running Wayland (Raspberry Pi 5) or X11 (Raspberry Pi 4 and older)
+OZONE_FLAGS=""
+if [ -n "$WAYLAND_DISPLAY" ]; then
+    echo "Detected Wayland - Using Wayland backend"
+    OZONE_FLAGS="--enable-features=UseOzonePlatform --ozone-platform=wayland"
+fi
+
 chromium "$URL" \
   --kiosk \
   --noerrdialogs \
   --disable-infobars \
   --no-first-run \
+  $OZONE_FLAGS \
   --enable-features=OverlayScrollbar \
   --disable-session-crashed-bubble \
   --disable-component-update \
