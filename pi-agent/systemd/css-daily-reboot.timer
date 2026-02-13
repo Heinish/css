@@ -1,0 +1,12 @@
+[Unit]
+Description=CSS Signage Daily Reboot Timer
+Requires=css-daily-reboot.service
+
+[Timer]
+OnCalendar=daily
+OnCalendar=03:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

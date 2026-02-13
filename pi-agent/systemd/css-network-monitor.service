@@ -1,0 +1,17 @@
+[Unit]
+Description=CSS Signage Network Monitor
+After=network-online.target css-kiosk.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/css-agent
+ExecStart=/usr/bin/python3 /opt/css-agent/network_monitor.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

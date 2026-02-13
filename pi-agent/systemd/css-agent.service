@@ -1,0 +1,20 @@
+[Unit]
+Description=CSS Signage Agent API Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/opt/css-agent
+ExecStart=/usr/bin/python3 /opt/css-agent/server.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target

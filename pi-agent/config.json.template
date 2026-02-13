@@ -1,0 +1,6 @@
+{
+  "name": "Pi",
+  "room": "",
+  "display_url": "file:///opt/css-agent/static/waiting.html",
+  "api_port": 5000
+}

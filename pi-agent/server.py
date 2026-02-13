@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+"""
+CSS Signage Agent - Flask REST API Server
+Provides endpoints for managing the Raspberry Pi signage display
+"""
+
+from flask import Flask, jsonify, request
+import subprocess
+import psutil
+import os
+import json
+import time
+import socket
+from datetime import datetime
+
+app = Flask(__name__)
+CONFIG_FILE = '/etc/css/config.json'
+
+def load_config():
+    """Load configuration from file"""
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        # Return default config if file doesn't exist
+        return {
+            'name': 'Pi',
+            'room': '',
+            'display_url': 'file:///opt/css-agent/static/waiting.html',
+            'api_port': 5000
+        }
+
+def save_config(config):
+    """Save configuration to file"""
+    with open(CONFIG_FILE, 'w') as f:
+        json.dump(config, f, indent=2)
+
+def get_cpu_temp():
+    """Get CPU temperature in Celsius"""
+    try:
+        with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
+            temp = int(f.read().strip()) / 1000.0
+            return round(temp, 1)
+    except:
+        return None
+
+def get_ip_address():
+    """Get the Pi's IP address"""
+    try:
+        # Connect to external address to determine local IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "Unknown"
+
+@app.route('/api/status', methods=['GET'])
+def get_status():
+    """Get current Pi status including stats and configuration"""
+    config = load_config()
+
+    return jsonify({
+        'name': config.get('name', 'Unknown'),
+        'room': config.get('room', ''),
+        'current_url': config.get('display_url', ''),
+        'uptime': int(time.time() - psutil.boot_time()),
+        'cpu_percent': psutil.cpu_percent(interval=1),
+        'memory_percent': psutil.virtual_memory().percent,
+        'temperature': get_cpu_temp(),
+        'ip_address': get_ip_address(),
+        'timestamp': datetime.now().isoformat()
+    })
+
+@app.route('/api/config', methods=['GET', 'POST'])
+def config():
+    """Get or update configuration"""
+    if request.method == 'GET':
+        return jsonify(load_config())
+    else:
+        # Update configuration
+        data = request.json
+        config = load_config()
+
+        # Update only provided fields
+        if 'name' in data:
+            config['name'] = data['name']
+        if 'room' in data:
+            config['room'] = data['room']
+        if 'display_url' in data:
+            config['display_url'] = data['display_url']
+        if 'api_port' in data:
+            config['api_port'] = data['api_port']
+
+        save_config(config)
+        return jsonify({'success': True, 'message': 'Configuration updated'})
+
+@app.route('/api/display/url', methods=['POST'])
+def set_url():
+    """Change the displayed URL and restart browser"""
+    data = request.json
+
+    if not data or 'url' not in data:
+        return jsonify({'success': False, 'error': 'URL is required'}), 400
+
+    url = data['url']
+
+    # Update configuration
+    config = load_config()
+    config['display_url'] = url
+    save_config(config)
+
+    # Restart browser to apply new URL
+    try:
+        subprocess.run(['systemctl', 'restart', 'css-kiosk'], check=True)
+        return jsonify({'success': True, 'message': f'URL changed to {url}'})
+    except subprocess.CalledProcessError as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/browser/restart', methods=['POST'])
+def restart_browser():
+    """Restart the Chromium browser"""
+    try:
+        subprocess.run(['systemctl', 'restart', 'css-kiosk'], check=True)
+        return jsonify({'success': True, 'message': 'Browser restarted'})
+    except subprocess.CalledProcessError as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/system/reboot', methods=['POST'])
+def reboot():
+    """Reboot the Raspberry Pi"""
+    try:
+        # Schedule reboot in 3 seconds to allow response to be sent
+        subprocess.Popen(['sudo', 'shutdown', '-r', '+0'])
+        return jsonify({'success': True, 'message': 'System rebooting'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/update', methods=['POST'])
+def update():
+    """Pull latest code from GitHub repository"""
+    try:
+        result = subprocess.run(
+            ['git', '-C', '/opt/css-agent', 'pull'],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        success = result.returncode == 0
+        output = result.stdout + result.stderr
+
+        if success:
+            # Restart the agent service to apply updates
+            subprocess.run(['systemctl', 'restart', 'css-agent'])
+
+        return jsonify({
+            'success': success,
+            'output': output,
+            'message': 'Update successful' if success else 'Update failed'
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'error': 'Update timed out'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/network/ip', methods=['POST'])
+def configure_network():
+    """Configure network IP address (static or DHCP)"""
+    data = request.json
+
+    if not data:
+        return jsonify({'success': False, 'error': 'Configuration data required'}), 400
+
+    mode = data.get('mode', 'static')  # 'static' or 'dhcp'
+
+    try:
+        if mode == 'dhcp':
+            # Configure DHCP in /etc/dhcpcd.conf
+            dhcpcd_config = """
+# Generated by CSS Agent
+# DHCP configuration
+"""
+            with open('/etc/dhcpcd.conf', 'w') as f:
+                f.write(dhcpcd_config)
+
+        else:  # static
+            # Validate required fields
+            if not all(k in data for k in ['ip', 'netmask', 'gateway']):
+                return jsonify({
+                    'success': False,
+                    'error': 'ip, netmask, and gateway are required for static IP'
+                }), 400
+
+            ip = data['ip']
+            netmask = data['netmask']
+            gateway = data['gateway']
+            dns = data.get('dns', '8.8.8.8')
+
+            # Configure static IP in /etc/dhcpcd.conf
+            dhcpcd_config = f"""
+# Generated by CSS Agent
+# Static IP configuration
+
+interface eth0
+static ip_address={ip}/{netmask}
+static routers={gateway}
+static domain_name_servers={dns}
+"""
+            with open('/etc/dhcpcd.conf', 'w') as f:
+                f.write(dhcpcd_config)
+
+        return jsonify({
+            'success': True,
+            'message': 'Network configuration updated. System will reboot to apply changes.',
+            'note': 'You will need to reconnect using the new IP address'
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/health', methods=['GET'])
+def health():
+    """Health check endpoint"""
+    return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
+
+@app.route('/', methods=['GET'])
+def index():
+    """Root endpoint - return basic info"""
+    config = load_config()
+    return jsonify({
+        'service': 'CSS Signage Agent',
+        'version': '1.0.0',
+        'name': config.get('name', 'Unknown'),
+        'status': 'running'
+    })
+
+if __name__ == '__main__':
+    # Load port from config
+    config = load_config()
+    port = config.get('api_port', 5000)
+
+    print(f"Starting CSS Signage Agent API server on port {port}")
+    print(f"Pi Name: {config.get('name', 'Unknown')}")
+    print(f"Display URL: {config.get('display_url', 'Not set')}")
+
+    # Run Flask server
+    # host='0.0.0.0' allows external connections
+    app.run(host='0.0.0.0', port=port, debug=False)
