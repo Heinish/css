@@ -97,6 +97,8 @@ Base URL: `http://{pi-ip}:5000`
 | `/api/config` | GET | Get configuration |
 | `/api/config` | POST | Update configuration |
 | `/api/display/url` | POST | Change displayed URL |
+| `/api/display/screenshot` | GET | Capture screenshot of current display |
+| `/api/display/rotate` | POST | Rotate display (0, 90, 180, 270 degrees) |
 | `/api/browser/restart` | POST | Restart Chromium browser |
 | `/api/system/reboot` | POST | Reboot the Pi |
 | `/api/update` | POST | Pull updates from GitHub |
@@ -125,6 +127,18 @@ curl -X POST http://192.168.1.100:5000/api/browser/restart
 **Reboot Pi:**
 ```bash
 curl -X POST http://192.168.1.100:5000/api/system/reboot
+```
+
+**Get screenshot:**
+```bash
+curl http://192.168.1.100:5000/api/display/screenshot -o screenshot.png
+```
+
+**Rotate display:**
+```bash
+curl -X POST http://192.168.1.100:5000/api/display/rotate \
+  -H "Content-Type: application/json" \
+  -d '{"rotation": 90}'
 ```
 
 ## 🎨 Customization
