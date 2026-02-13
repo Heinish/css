@@ -277,6 +277,9 @@ def configure_network():
         return jsonify({'success': False, 'error': 'Configuration data required'}), 400
 
     mode = data.get('mode', 'static')  # 'static' or 'dhcp'
+    auto_reboot = data.get('auto_reboot', True)  # Auto-reboot by default
+
+    new_ip = None
 
     try:
         if mode == 'dhcp':
@@ -287,6 +290,8 @@ def configure_network():
 """
             with open('/etc/dhcpcd.conf', 'w') as f:
                 f.write(dhcpcd_config)
+
+            new_ip = "DHCP"  # IP will be assigned by DHCP server
 
         else:  # static
             # Validate required fields
@@ -300,6 +305,7 @@ def configure_network():
             netmask = data['netmask']
             gateway = data['gateway']
             dns = data.get('dns', '8.8.8.8')
+            new_ip = ip
 
             # Configure static IP in /etc/dhcpcd.conf
             dhcpcd_config = f"""
@@ -314,11 +320,24 @@ static domain_name_servers={dns}
             with open('/etc/dhcpcd.conf', 'w') as f:
                 f.write(dhcpcd_config)
 
-        return jsonify({
+        # Prepare response
+        response_data = {
             'success': True,
-            'message': 'Network configuration updated. System will reboot to apply changes.',
-            'note': 'You will need to reconnect using the new IP address'
-        })
+            'message': 'Network configuration updated.',
+            'new_ip': new_ip,
+            'reboot_required': True
+        }
+
+        if auto_reboot:
+            # Schedule reboot in 3 seconds to allow response to be sent
+            subprocess.Popen(['sudo', 'shutdown', '-r', '+0'])
+            response_data['message'] += ' System rebooting in 3 seconds.'
+            response_data['note'] = f'Reconnect at new IP: {new_ip}'
+        else:
+            response_data['message'] += ' Reboot required to apply changes.'
+            response_data['note'] = 'Manual reboot needed'
+
+        return jsonify(response_data)
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

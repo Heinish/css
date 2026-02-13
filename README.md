@@ -141,6 +141,31 @@ curl -X POST http://192.168.1.100:5000/api/display/rotate \
   -d '{"rotation": 90}'
 ```
 
+**Change network IP (Static with auto-reboot):**
+```bash
+curl -X POST http://192.168.1.100:5000/api/network/ip \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mode": "static",
+    "ip": "192.168.1.150",
+    "netmask": "24",
+    "gateway": "192.168.1.1",
+    "dns": "8.8.8.8",
+    "auto_reboot": true
+  }'
+# Pi will automatically reboot and apply new IP
+# Dashboard should update the IP and wait ~30 seconds before reconnecting
+```
+
+**Change network IP (DHCP):**
+```bash
+curl -X POST http://192.168.1.100:5000/api/network/ip \
+  -H "Content-Type: application/json" \
+  -d '{"mode": "dhcp", "auto_reboot": true}'
+# Pi will reboot and get IP from DHCP server
+# Check router to find new IP address
+```
+
 ## 🎨 Customization
 
 ### Change Displayed URL
