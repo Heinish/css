@@ -72,6 +72,10 @@ systemctl enable css-agent.service
 systemctl start css-agent.service
 
 echo ""
+echo "Step 7.5: Configuring log rotation to prevent SD card filling..."
+/opt/css-agent/scripts/setup-log-rotation.sh
+
+echo ""
 echo "Step 8: Configuring FullPageOS to use CSS..."
 # Update FullPageOS config to point to our API
 if [ -f /boot/firmware/fullpageos.txt ]; then

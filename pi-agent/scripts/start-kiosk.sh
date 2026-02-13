@@ -69,4 +69,8 @@ chromium "$URL" \
   --media-cache-size=1 \
   --disable-application-cache \
   --disable-offline-load-stale-cache \
-  --disable-gpu-shader-disk-cache
+  --disable-gpu-shader-disk-cache \
+  --log-level=3 \
+  --silent-launch \
+  --disable-logging \
+  --disable-dev-shm-usage

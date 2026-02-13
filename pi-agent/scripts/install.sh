@@ -102,6 +102,10 @@ systemctl enable css-agent.service
 systemctl enable css-daily-reboot.timer
 
 echo ""
+echo "Step 8.5: Configuring log rotation to prevent SD card filling..."
+/opt/css-agent/scripts/setup-log-rotation.sh
+
+echo ""
 echo "Step 9: Configuring auto-login (for kiosk mode)..."
 # Enable auto-login to desktop for user 'pi'
 raspi-config nonint do_boot_behaviour B4
