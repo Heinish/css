@@ -17,6 +17,13 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# Get the actual user (not root)
+ACTUAL_USER="${SUDO_USER:-$USER}"
+ACTUAL_HOME=$(eval echo ~$ACTUAL_USER)
+echo "Detected user: $ACTUAL_USER"
+echo "Home directory: $ACTUAL_HOME"
+echo ""
+
 # Check if running on a Raspberry Pi
 if [ ! -f /proc/device-tree/model ]; then
     echo "Warning: This doesn't appear to be a Raspberry Pi"
@@ -77,7 +84,11 @@ fi
 
 echo ""
 echo "Step 7: Installing systemd services..."
-cp /opt/css-agent/systemd/*.service /etc/systemd/system/
+# Copy service files and replace 'pi' user with actual user
+for service_file in /opt/css-agent/systemd/*.service; do
+    filename=$(basename "$service_file")
+    sed "s|User=pi|User=$ACTUAL_USER|g; s|/home/pi|$ACTUAL_HOME|g" "$service_file" > "/etc/systemd/system/$filename"
+done
 cp /opt/css-agent/systemd/*.timer /etc/systemd/system/
 systemctl daemon-reload
 
@@ -95,10 +106,10 @@ raspi-config nonint do_boot_behaviour B4
 echo ""
 echo "Step 10: Configuring desktop environment..."
 # Create autostart directory
-mkdir -p /home/pi/.config/autostart
+mkdir -p "$ACTUAL_HOME/.config/autostart"
 
 # Create autostart entry for CSS Kiosk
-cat > /home/pi/.config/autostart/css-kiosk.desktop <<EOF
+cat > "$ACTUAL_HOME/.config/autostart/css-kiosk.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=CSS Kiosk
@@ -109,7 +120,7 @@ X-GNOME-Autostart-enabled=true
 EOF
 
 # Disable screen blanking
-cat > /home/pi/.config/autostart/disable-screensaver.desktop <<EOF
+cat > "$ACTUAL_HOME/.config/autostart/disable-screensaver.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Disable Screensaver
@@ -120,7 +131,7 @@ X-GNOME-Autostart-enabled=true
 EOF
 
 # Hide mouse cursor
-cat > /home/pi/.config/autostart/unclutter.desktop <<EOF
+cat > "$ACTUAL_HOME/.config/autostart/unclutter.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Unclutter
@@ -131,7 +142,7 @@ X-GNOME-Autostart-enabled=true
 EOF
 
 # Set ownership
-chown -R pi:pi /home/pi/.config
+chown -R "$ACTUAL_USER:$ACTUAL_USER" "$ACTUAL_HOME/.config"
 
 echo ""
 echo "======================================"
