@@ -81,13 +81,16 @@ echo "Step 7: Disabling Chromium translate popup..."
 mkdir -p /home/$ACTUAL_USER/.config/chromium/Default
 chown -R $ACTUAL_USER:$ACTUAL_USER /home/$ACTUAL_USER/.config/chromium
 
-# Disable translate in Chromium preferences
+# Disable translate completely in Chromium preferences (button + popup)
 cat > /home/$ACTUAL_USER/.config/chromium/Default/Preferences <<'PREFS_EOF'
 {
    "translate": {
       "enabled": false
    },
-   "translate_site_blacklist": ["*"]
+   "translate_blocked_languages": ["af","am","ar","az","be","bg","bn","bs","ca","ceb","co","cs","cy","da","de","el","en","eo","es","et","eu","fa","fi","fr","fy","ga","gd","gl","gu","ha","haw","hi","hmn","hr","ht","hu","hy","id","ig","is","it","iw","ja","jw","ka","kk","km","kn","ko","ku","ky","la","lb","lo","lt","lv","mg","mi","mk","ml","mn","mr","ms","mt","my","ne","nl","no","ny","pa","pl","ps","pt","ro","ru","sd","si","sk","sl","sm","sn","so","sq","sr","st","su","sv","sw","ta","te","tg","th","tl","tr","uk","ur","uz","vi","xh","yi","yo","zh-CN","zh-TW","zu"],
+   "translate_site_blacklist_between": [
+      {"*": "*"}
+   ]
 }
 PREFS_EOF
 chown $ACTUAL_USER:$ACTUAL_USER /home/$ACTUAL_USER/.config/chromium/Default/Preferences
