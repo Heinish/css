@@ -8,6 +8,23 @@ import './renderer/styles.css';
 
 const h = React.createElement;
 
+// ===== Helper Functions =====
+function formatUptime(seconds) {
+  if (!seconds) return 'N/A';
+
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m`;
+  } else if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  } else {
+    return `${minutes}m`;
+  }
+}
+
 // ===== API Service (using IPC to main process) =====
 const ApiService = {
   async getPiStatus(ip) {
@@ -376,6 +393,10 @@ function PiCard({ pi, rooms, urls, onRemove, onUpdate }) {
         h('div', { className: 'stat' },
           h('span', { className: 'stat-label' }, '💾 Memory:'),
           h('span', { className: 'stat-value' }, `${pi.memory_percent || 0}%`)
+        ),
+        h('div', { className: 'stat' },
+          h('span', { className: 'stat-label' }, '⏱️ Uptime:'),
+          h('span', { className: 'stat-value' }, formatUptime(pi.uptime))
         ),
         pi.temperature && h('div', { className: 'stat' },
           h('span', { className: 'stat-label' }, '🌡️ Temp:'),
