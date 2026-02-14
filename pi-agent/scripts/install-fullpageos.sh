@@ -120,6 +120,15 @@ else
     echo "Warning: /boot/firmware/fullpageos.txt not found - you may need to configure FullPageOS manually"
 fi
 
+# Add Chromium flags to disable translate UI completely
+cat > /boot/firmware/fullpageos-config.txt <<'CONFIG_EOF'
+# CSS Signage - Custom Chromium Flags
+# Disable translate popup and UI button
+chrome_options="--disable-translate --disable-features=TranslateUI"
+CONFIG_EOF
+chmod 666 /boot/firmware/fullpageos-config.txt
+echo "Added Chromium flags to disable translate UI"
+
 echo ""
 echo "======================================"
 echo "Installation Complete!"
