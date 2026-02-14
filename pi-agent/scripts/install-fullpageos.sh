@@ -66,9 +66,14 @@ fi
 echo ""
 echo "Step 6: Installing CSS API service..."
 # Only install the API service, not the kiosk (FullPageOS handles that)
-sed "s|User=pi|User=$ACTUAL_USER|g; s|/home/pi|$ACTUAL_HOME|g" \
+# Run as root to allow writing to /boot/firmware and /etc/css
+sed "s|User=pi|# User removed - running as root|g; s|/home/pi|$ACTUAL_HOME|g" \
     /opt/css-agent/systemd/css-agent.service > /etc/systemd/system/css-agent.service
 systemctl daemon-reload
+
+# Set proper permissions on config files
+chmod 666 /etc/css/config.json
+chmod 666 /boot/firmware/fullpageos.txt
 
 echo ""
 echo "Step 7: Enabling CSS API service and auto-update timer..."
