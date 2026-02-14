@@ -130,12 +130,27 @@ def set_url():
     try:
         if is_fullpageos():
             # FullPageOS: update config file and kill chromium
-            with open(FULLPAGEOS_CONFIG, 'w') as f:
-                f.write(url)
-            subprocess.run(['pkill', 'chromium'], check=False)  # Don't check return code
+            try:
+                # Write URL with newline for proper formatting
+                with open(FULLPAGEOS_CONFIG, 'w') as f:
+                    f.write(url + '\n')
+                # Sync to ensure write completes before killing browser
+                os.sync()
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Failed to write config: {str(e)}'}), 500
+
+            # Use SIGTERM first (graceful), then SIGKILL if needed
+            try:
+                subprocess.run(['pkill', 'chromium'], check=False, timeout=2)
+                time.sleep(1)
+            except:
+                subprocess.run(['pkill', '-9', 'chromium'], check=False)
         else:
-            # Standard CSS installation: restart systemd service
-            subprocess.run(['systemctl', 'restart', 'css-kiosk'], check=True)
+            # Standard CSS installation: try systemd service, fallback to direct kill
+            result = subprocess.run(['systemctl', 'restart', 'css-kiosk'], check=False)
+            if result.returncode != 0:
+                # Service doesn't exist, try killing chromium directly
+                subprocess.run(['pkill', 'chromium'], check=False)
 
         return jsonify({'success': True, 'message': f'URL changed to {url}'})
     except Exception as e:
@@ -146,11 +161,18 @@ def restart_browser():
     """Restart the Chromium browser"""
     try:
         if is_fullpageos():
-            # FullPageOS: kill chromium (it will auto-restart)
-            subprocess.run(['pkill', 'chromium'], check=False)
+            # FullPageOS: kill chromium gracefully (it will auto-restart)
+            try:
+                subprocess.run(['pkill', 'chromium'], check=False, timeout=2)
+                time.sleep(1)
+            except:
+                subprocess.run(['pkill', '-9', 'chromium'], check=False)
         else:
-            # Standard CSS installation: restart systemd service
-            subprocess.run(['systemctl', 'restart', 'css-kiosk'], check=True)
+            # Standard CSS installation: try systemd service, fallback to direct kill
+            result = subprocess.run(['systemctl', 'restart', 'css-kiosk'], check=False)
+            if result.returncode != 0:
+                # Service doesn't exist, try killing chromium directly
+                subprocess.run(['pkill', 'chromium'], check=False)
 
         return jsonify({'success': True, 'message': 'Browser restarted'})
     except Exception as e:
@@ -207,19 +229,35 @@ def rotate_display():
 
         # Read current config
         with open(config_file, 'r') as f:
-            lines = f.readlines()
+            content = f.read()
 
-        # Remove existing display_rotate lines
-        lines = [line for line in lines if not line.strip().startswith('display_rotate=')]
+        # Remove existing display_rotate and lcd_rotate lines
+        lines = content.split('\n')
+        filtered_lines = []
+        for line in lines:
+            stripped = line.strip()
+            if not (stripped.startswith('display_rotate=') or
+                   stripped.startswith('lcd_rotate=') or
+                   stripped.startswith('#display_rotate=') or
+                   stripped.startswith('#lcd_rotate=')):
+                filtered_lines.append(line)
 
-        # Add new rotation setting
-        # display_rotate values: 0=normal, 1=90°, 2=180°, 3=270°
+        # Find [all] section or add it
+        config_content = '\n'.join(filtered_lines)
+
+        # Rotation values: 0=normal, 1=90°, 2=180°, 3=270°
         rotation_map = {0: 0, 90: 1, 180: 2, 270: 3}
-        lines.append(f'\n# CSS Signage - Display Rotation\ndisplay_rotate={rotation_map[rotation]}\n')
+        rotation_value = rotation_map[rotation]
+
+        # Add rotation settings at the end (works for both old and new Pi)
+        rotation_config = f'\n# CSS Signage - Display Rotation\ndisplay_rotate={rotation_value}\nlcd_rotate={rotation_value}\n'
 
         # Write back to config
         with open(config_file, 'w') as f:
-            f.writelines(lines)
+            f.write(config_content.rstrip() + rotation_config)
+
+        # Sync to disk
+        os.sync()
 
         return jsonify({
             'success': True,

@@ -1,0 +1,27 @@
+{
+  "name": "css-dashboard",
+  "version": "1.0.0",
+  "description": "CSS (Cheap Signage Solutions) - Raspberry Pi Signage Management Dashboard",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win --x64",
+    "build:msi": "electron-builder --win --x64 --config electron-builder.json"
+  },
+  "keywords": [
+    "signage",
+    "raspberry-pi",
+    "dashboard",
+    "kiosk"
+  ],
+  "author": "CSS Team",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.5",
+    "electron-updater": "^6.1.7"
+  },
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.9.1"
+  }
+}

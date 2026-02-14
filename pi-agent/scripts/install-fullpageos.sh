@@ -76,18 +76,35 @@ chmod 666 /etc/css/config.json
 chmod 666 /boot/firmware/fullpageos.txt
 
 echo ""
-echo "Step 7: Enabling CSS API service and auto-update timer..."
+echo "Step 7: Disabling Chromium translate popup..."
+# Create Chromium config directory
+mkdir -p /home/$ACTUAL_USER/.config/chromium/Default
+chown -R $ACTUAL_USER:$ACTUAL_USER /home/$ACTUAL_USER/.config/chromium
+
+# Disable translate in Chromium preferences
+cat > /home/$ACTUAL_USER/.config/chromium/Default/Preferences <<'PREFS_EOF'
+{
+   "translate": {
+      "enabled": false
+   },
+   "translate_site_blacklist": ["*"]
+}
+PREFS_EOF
+chown $ACTUAL_USER:$ACTUAL_USER /home/$ACTUAL_USER/.config/chromium/Default/Preferences
+
+echo ""
+echo "Step 8: Enabling CSS API service and auto-update timer..."
 systemctl enable css-agent.service
 systemctl start css-agent.service
 systemctl enable css-auto-update.timer
 systemctl start css-auto-update.timer
 
 echo ""
-echo "Step 7.5: Configuring log rotation to prevent SD card filling..."
+echo "Step 9: Configuring log rotation to prevent SD card filling..."
 /opt/css-agent/scripts/setup-log-rotation.sh
 
 echo ""
-echo "Step 8: Configuring FullPageOS to use CSS..."
+echo "Step 10: Configuring FullPageOS to use CSS..."
 # Update FullPageOS config to point to our API
 if [ -f /boot/firmware/fullpageos.txt ]; then
     # Backup original

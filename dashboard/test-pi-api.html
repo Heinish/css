@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Pi API</title>
+    <script src="https://unpkg.com/axios@1.6.5/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 10px 5px;
+            cursor: pointer;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>Test Pi API Connection</h1>
+
+    <div>
+        <label>Pi IP Address:</label>
+        <input type="text" id="piIp" value="192.168.10.105" style="padding: 5px; width: 200px;">
+    </div>
+
+    <div style="margin-top: 20px;">
+        <button onclick="testStatus()">Test GET /api/status</button>
+        <button onclick="testChangeUrl()">Test POST /api/display/url</button>
+        <button onclick="testRestart()">Test POST /api/browser/restart</button>
+    </div>
+
+    <div id="result"></div>
+
+    <script>
+        const resultDiv = document.getElementById('result');
+
+        function showResult(title, data, isError = false) {
+            resultDiv.className = isError ? 'error' : 'success';
+            resultDiv.innerHTML = `<strong>${title}</strong>\n\n${JSON.stringify(data, null, 2)}`;
+        }
+
+        async function testStatus() {
+            const ip = document.getElementById('piIp').value;
+            resultDiv.textContent = 'Testing...';
+
+            try {
+                const response = await axios.get(`http://${ip}:5000/api/status`, { timeout: 5000 });
+                showResult('✅ SUCCESS - Pi Status:', response.data);
+            } catch (error) {
+                showResult('❌ ERROR:', { message: error.message, error: error.toString() }, true);
+            }
+        }
+
+        async function testChangeUrl() {
+            const ip = document.getElementById('piIp').value;
+            const testUrl = prompt('Enter test URL:', 'https://google.com');
+            if (!testUrl) return;
+
+            resultDiv.textContent = 'Testing...';
+
+            try {
+                const response = await axios.post(`http://${ip}:5000/api/display/url`,
+                    { url: testUrl },
+                    { timeout: 5000 }
+                );
+                showResult('✅ SUCCESS - URL Changed:', response.data);
+            } catch (error) {
+                showResult('❌ ERROR:', { message: error.message, error: error.toString() }, true);
+            }
+        }
+
+        async function testRestart() {
+            if (!confirm('Restart browser on Pi?')) return;
+
+            const ip = document.getElementById('piIp').value;
+            resultDiv.textContent = 'Testing...';
+
+            try {
+                const response = await axios.post(`http://${ip}:5000/api/browser/restart`, {}, { timeout: 5000 });
+                showResult('✅ SUCCESS - Browser Restart:', response.data);
+            } catch (error) {
+                showResult('❌ ERROR:', { message: error.message, error: error.toString() }, true);
+            }
+        }
+    </script>
+</body>
+</html>
