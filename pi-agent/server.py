@@ -224,46 +224,106 @@ def rotate_display():
         return jsonify({'success': False, 'error': 'Invalid rotation. Must be 0, 90, 180, or 270'}), 400
 
     try:
-        # For Raspberry Pi, we modify /boot/firmware/config.txt
-        config_file = '/boot/firmware/config.txt'
+        # For FullPageOS with X11, use xrandr
+        if is_fullpageos():
+            # Detect primary display
+            result = subprocess.run(
+                ['xrandr'],
+                capture_output=True,
+                text=True,
+                env={'DISPLAY': ':0'}
+            )
 
-        # Read current config
-        with open(config_file, 'r') as f:
-            content = f.read()
+            # Find connected display (HDMI-1, HDMI-2, etc.)
+            display_name = None
+            for line in result.stdout.split('\n'):
+                if 'connected primary' in line or 'connected' in line:
+                    display_name = line.split()[0]
+                    if 'connected' in line:
+                        break
 
-        # Remove existing display_rotate and lcd_rotate lines
-        lines = content.split('\n')
-        filtered_lines = []
-        for line in lines:
-            stripped = line.strip()
-            if not (stripped.startswith('display_rotate=') or
-                   stripped.startswith('lcd_rotate=') or
-                   stripped.startswith('#display_rotate=') or
-                   stripped.startswith('#lcd_rotate=')):
-                filtered_lines.append(line)
+            if not display_name:
+                return jsonify({'success': False, 'error': 'Could not detect display'}), 500
 
-        # Find [all] section or add it
-        config_content = '\n'.join(filtered_lines)
+            # Map rotation to xrandr values
+            rotation_map = {
+                0: 'normal',
+                90: 'right',
+                180: 'inverted',
+                270: 'left'
+            }
+            xrandr_rotation = rotation_map[rotation]
 
-        # Rotation values: 0=normal, 1=90°, 2=180°, 3=270°
-        rotation_map = {0: 0, 90: 1, 180: 2, 270: 3}
-        rotation_value = rotation_map[rotation]
+            # Apply rotation using xrandr
+            subprocess.run(
+                ['xrandr', '--output', display_name, '--rotate', xrandr_rotation],
+                check=True,
+                env={'DISPLAY': ':0'}
+            )
 
-        # Add rotation settings at the end (works for both old and new Pi)
-        rotation_config = f'\n# CSS Signage - Display Rotation\ndisplay_rotate={rotation_value}\nlcd_rotate={rotation_value}\n'
+            # Make rotation persistent by creating autostart script
+            autostart_dir = '/home/box11/.config/autostart'
+            os.makedirs(autostart_dir, exist_ok=True)
 
-        # Write back to config
-        with open(config_file, 'w') as f:
-            f.write(config_content.rstrip() + rotation_config)
+            desktop_file = f'{autostart_dir}/css-rotation.desktop'
+            desktop_content = f'''[Desktop Entry]
+Type=Application
+Name=CSS Display Rotation
+Exec=sh -c "sleep 2 && DISPLAY=:0 xrandr --output {display_name} --rotate {xrandr_rotation}"
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+'''
+            with open(desktop_file, 'w') as f:
+                f.write(desktop_content)
 
-        # Sync to disk
-        os.sync()
+            # Set ownership
+            import pwd
+            user = get_chromium_user()
+            uid = pwd.getpwnam(user).pw_uid
+            gid = pwd.getpwnam(user).pw_gid
+            os.chown(desktop_file, uid, gid)
 
-        return jsonify({
-            'success': True,
-            'message': f'Display rotation set to {rotation}°. Reboot required to apply.',
-            'reboot_required': True
-        })
+            return jsonify({
+                'success': True,
+                'message': f'Display rotated to {rotation}°. Rotation applied immediately and will persist after reboot.',
+                'reboot_required': False
+            })
+
+        else:
+            # Fallback to boot config for non-FullPageOS systems
+            config_file = '/boot/firmware/config.txt'
+
+            with open(config_file, 'r') as f:
+                content = f.read()
+
+            lines = content.split('\n')
+            filtered_lines = []
+            for line in lines:
+                stripped = line.strip()
+                if not (stripped.startswith('display_rotate=') or
+                       stripped.startswith('lcd_rotate=') or
+                       stripped.startswith('#display_rotate=') or
+                       stripped.startswith('#lcd_rotate=')):
+                    filtered_lines.append(line)
+
+            config_content = '\n'.join(filtered_lines)
+
+            rotation_map = {0: 0, 90: 1, 180: 2, 270: 3}
+            rotation_value = rotation_map[rotation]
+
+            rotation_config = f'\n# CSS Signage - Display Rotation\ndisplay_rotate={rotation_value}\nlcd_rotate={rotation_value}\n'
+
+            with open(config_file, 'w') as f:
+                f.write(config_content.rstrip() + rotation_config)
+
+            os.sync()
+
+            return jsonify({
+                'success': True,
+                'message': f'Display rotation set to {rotation}°. Reboot required to apply.',
+                'reboot_required': True
+            })
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
