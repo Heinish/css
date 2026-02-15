@@ -201,9 +201,12 @@ def get_screenshot():
             )
 
         if result.returncode != 0:
+            # Log detailed error information
+            error_msg = result.stderr.decode('utf-8') if result.stderr else 'No stderr output'
+            print(f"❌ Screenshot failed: returncode={result.returncode}, stderr={error_msg}")
             # Cleanup and return error
             os.unlink(screenshot_path)
-            return jsonify({'success': False, 'error': 'Screenshot capture failed'}), 500
+            return jsonify({'success': False, 'error': f'Screenshot capture failed: {error_msg}'}), 500
 
         # Send file and cleanup
         return send_file(screenshot_path, mimetype='image/png', as_attachment=True,
