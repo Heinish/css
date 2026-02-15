@@ -226,12 +226,14 @@ def rotate_display():
     try:
         # For FullPageOS with X11, use xrandr
         if is_fullpageos():
-            # Detect primary display
+            # Get the user running X session
+            user = get_chromium_user()
+
+            # Detect primary display (run as the X user)
             result = subprocess.run(
-                ['xrandr'],
+                ['sudo', '-u', user, 'env', 'DISPLAY=:0', 'xrandr'],
                 capture_output=True,
-                text=True,
-                env={'DISPLAY': ':0'}
+                text=True
             )
 
             # Find connected display (HDMI-1, HDMI-2, etc.)
@@ -254,11 +256,10 @@ def rotate_display():
             }
             xrandr_rotation = rotation_map[rotation]
 
-            # Apply rotation using xrandr
+            # Apply rotation using xrandr (run as the X user)
             subprocess.run(
-                ['xrandr', '--output', display_name, '--rotate', xrandr_rotation],
-                check=True,
-                env={'DISPLAY': ':0'}
+                ['sudo', '-u', user, 'env', 'DISPLAY=:0', 'xrandr', '--output', display_name, '--rotate', xrandr_rotation],
+                check=True
             )
 
             # Make rotation persistent by creating autostart script
