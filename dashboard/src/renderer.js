@@ -56,12 +56,18 @@ function App() {
   const [showRoomManager, setShowRoomManager] = useState(false);
   const [showUrlManager, setShowUrlManager] = useState(false);
   const [restartingAll, setRestartingAll] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(refreshPiStatus, 60000); // Refresh every 1 minute
-    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!autoRefreshEnabled) return;
+    const interval = setInterval(refreshPiStatus, 60000);
+    return () => clearInterval(interval);
+  }, [autoRefreshEnabled]);
 
   async function loadData() {
     try {
@@ -81,7 +87,9 @@ function App() {
     }
   }
 
-  async function refreshPiStatus() {
+  async function refreshPiStatus(force) {
+    // Skip auto-refresh when a modal/dialog is open to avoid losing input focus
+    if (!force && modalOpen) return;
     setRefreshing(true);
     // Reload from database to get latest Pis
     const currentPis = await window.api.getAllPis();
@@ -105,6 +113,7 @@ function App() {
       const newPi = await window.api.addPi(piData);
       setPis([...pis, newPi]);
       setShowAddDialog(false);
+      setModalOpen(false);
       setTimeout(() => refreshPiStatus(), 100);
     } catch (error) {
       alert('Failed to add Pi: ' + error.message);
@@ -219,9 +228,9 @@ function App() {
     h('div', { className: 'main-content' },
       h('div', { className: 'toolbar' },
         h('div', { className: 'toolbar-left' },
-          h('button', { className: 'btn btn-primary', onClick: () => setShowAddDialog(true) }, '➕ Add Pi'),
-          h('button', { className: 'btn btn-secondary', onClick: () => setShowRoomManager(true) }, '🏢 Manage Rooms'),
-          h('button', { className: 'btn btn-secondary', onClick: () => setShowUrlManager(true) }, '🔗 Manage URLs'),
+          h('button', { className: 'btn btn-primary', onClick: () => { setShowAddDialog(true); setModalOpen(true); } }, '➕ Add Pi'),
+          h('button', { className: 'btn btn-secondary', onClick: () => { setShowRoomManager(true); setModalOpen(true); } }, '🏢 Manage Rooms'),
+          h('button', { className: 'btn btn-secondary', onClick: () => { setShowUrlManager(true); setModalOpen(true); } }, '🔗 Manage URLs'),
           h('button', {
             className: 'btn btn-secondary',
             onClick: handleRestartAllBrowsers,
@@ -229,9 +238,13 @@ function App() {
           }, restartingAll ? '⏳ Restarting All...' : '🔄 Restart All Browsers'),
           h('button', {
             className: 'btn btn-secondary',
-            onClick: refreshPiStatus,
+            onClick: () => refreshPiStatus(true),
             disabled: refreshing
-          }, refreshing ? '⏳ Refreshing...' : '🔄 Refresh')
+          }, refreshing ? '⏳ Refreshing...' : '🔄 Refresh'),
+          h('button', {
+            className: autoRefreshEnabled ? 'btn btn-secondary' : 'btn btn-warning',
+            onClick: () => setAutoRefreshEnabled(!autoRefreshEnabled)
+          }, autoRefreshEnabled ? '⏸️ Auto-Refresh On' : '▶️ Auto-Refresh Off')
         ),
         h('div', { className: 'toolbar-right' },
           h('label', null, '🏢 Filter:'),
@@ -264,7 +277,8 @@ function App() {
                 rooms,
                 urls,
                 onRemove: () => handleRemovePi(pi.id),
-                onUpdate: loadData
+                onUpdate: loadData,
+                setModalOpen
               }));
         })()
       )
@@ -273,13 +287,13 @@ function App() {
     // Add Pi Dialog
     showAddDialog && h(AddPiDialog, {
       onAdd: handleAddPi,
-      onCancel: () => setShowAddDialog(false)
+      onCancel: () => { setShowAddDialog(false); setModalOpen(false); }
     }),
 
     // Room Manager Dialog
     showRoomManager && h(RoomManagerDialog, {
       rooms,
-      onClose: () => setShowRoomManager(false),
+      onClose: () => { setShowRoomManager(false); setModalOpen(false); },
       onAddRoom: handleAddRoom,
       onRemoveRoom: handleRemoveRoom
     }),
@@ -287,7 +301,7 @@ function App() {
     // URL Manager Dialog
     showUrlManager && h(UrlManagerDialog, {
       urls,
-      onClose: () => setShowUrlManager(false),
+      onClose: () => { setShowUrlManager(false); setModalOpen(false); },
       onAddUrl: handleAddUrl,
       onRemoveUrl: handleRemoveUrl
     })
@@ -295,7 +309,7 @@ function App() {
 }
 
 // ===== Pi Card Component =====
-function PiCard({ pi, rooms, urls, onRemove, onUpdate }) {
+function PiCard({ pi, rooms, urls, onRemove, onUpdate, setModalOpen }) {
   const [changing, setChanging] = useState(false);
   const [showUrlDialog, setShowUrlDialog] = useState(false);
   const [newUrl, setNewUrl] = useState('');
@@ -341,11 +355,13 @@ function PiCard({ pi, rooms, urls, onRemove, onUpdate }) {
   async function handleChangeUrl() {
     setNewUrl(pi.current_url || 'https://');
     setShowUrlDialog(true);
+    setModalOpen(true);
   }
 
   async function submitUrlChange() {
     if (!newUrl) return;
     setShowUrlDialog(false);
+    setModalOpen(false);
     setChanging(true);
 
     const result = await ApiService.changeUrl(pi.ip_address, newUrl);
@@ -479,7 +495,7 @@ function PiCard({ pi, rooms, urls, onRemove, onUpdate }) {
         }, loadingPreview ? '⏳ Loading...' : '📸 Preview'),
         h('button', {
           className: 'btn btn-sm btn-secondary',
-          onClick: () => setShowSettings(true)
+          onClick: () => { setShowSettings(true); setModalOpen(true); }
         }, '⚙️ Settings'),
         h('button', {
           className: 'btn btn-sm btn-danger',
@@ -513,7 +529,7 @@ function PiCard({ pi, rooms, urls, onRemove, onUpdate }) {
     ),
 
     // URL Change Dialog
-    showUrlDialog && h('div', { className: 'modal', onClick: () => setShowUrlDialog(false) },
+    showUrlDialog && h('div', { className: 'modal', onClick: () => { setShowUrlDialog(false); setModalOpen(false); } },
       h('div', { className: 'modal-content', onClick: (e) => e.stopPropagation() },
         h('h2', null, '🔗 Change URL'),
         urls && urls.length > 0 && h('div', { className: 'form-group' },
@@ -548,7 +564,7 @@ function PiCard({ pi, rooms, urls, onRemove, onUpdate }) {
           })
         ),
         h('div', { className: 'form-actions' },
-          h('button', { type: 'button', className: 'btn btn-secondary', onClick: () => setShowUrlDialog(false) }, 'Cancel'),
+          h('button', { type: 'button', className: 'btn btn-secondary', onClick: () => { setShowUrlDialog(false); setModalOpen(false); } }, 'Cancel'),
           h('button', { type: 'button', className: 'btn btn-primary', onClick: submitUrlChange }, 'Change URL')
         )
       )
@@ -558,7 +574,7 @@ function PiCard({ pi, rooms, urls, onRemove, onUpdate }) {
     showSettings && h(PiSettingsDialog, {
       pi,
       rooms,
-      onClose: () => setShowSettings(false),
+      onClose: () => { setShowSettings(false); setModalOpen(false); },
       onUpdate
     })
   );
