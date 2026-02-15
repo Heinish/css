@@ -33,10 +33,6 @@ def add_no_cache_headers(response):
     response.headers['Expires'] = '0'
     return response
 
-def is_fullpageos():
-    """Check if running on FullPageOS"""
-    return os.path.exists(FULLPAGEOS_CONFIG)
-
 def load_config():
     """Load configuration from file"""
     try:
@@ -76,6 +72,21 @@ def get_ip_address():
         return ip
     except:
         return "Unknown"
+
+def restart_chromium():
+    """Kill Chromium gracefully (FullPageOS will auto-restart it)"""
+    try:
+        subprocess.run(['pkill', 'chromium'], check=False, timeout=2)
+        time.sleep(1)
+    except:
+        subprocess.run(['pkill', '-9', 'chromium'], check=False)
+
+def update_display_url(url):
+    """Write URL to FullPageOS config and restart browser"""
+    with open(FULLPAGEOS_CONFIG, 'w') as f:
+        f.write(url + '\n')
+    os.sync()
+    restart_chromium()
 
 @app.route('/api/status', methods=['GET'])
 def get_status():
@@ -132,32 +143,9 @@ def set_url():
     config['display_url'] = url
     save_config(config)
 
-    # Restart browser to apply new URL
+    # Update FullPageOS config and restart browser
     try:
-        if is_fullpageos():
-            # FullPageOS: update config file and kill chromium
-            try:
-                # Write URL with newline for proper formatting
-                with open(FULLPAGEOS_CONFIG, 'w') as f:
-                    f.write(url + '\n')
-                # Sync to ensure write completes before killing browser
-                os.sync()
-            except Exception as e:
-                return jsonify({'success': False, 'error': f'Failed to write config: {str(e)}'}), 500
-
-            # Use SIGTERM first (graceful), then SIGKILL if needed
-            try:
-                subprocess.run(['pkill', 'chromium'], check=False, timeout=2)
-                time.sleep(1)
-            except:
-                subprocess.run(['pkill', '-9', 'chromium'], check=False)
-        else:
-            # Standard CSS installation: try systemd service, fallback to direct kill
-            result = subprocess.run(['systemctl', 'restart', 'css-kiosk'], check=False)
-            if result.returncode != 0:
-                # Service doesn't exist, try killing chromium directly
-                subprocess.run(['pkill', 'chromium'], check=False)
-
+        update_display_url(url)
         return jsonify({'success': True, 'message': f'URL changed to {url}'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -166,20 +154,7 @@ def set_url():
 def restart_browser():
     """Restart the Chromium browser"""
     try:
-        if is_fullpageos():
-            # FullPageOS: kill chromium gracefully (it will auto-restart)
-            try:
-                subprocess.run(['pkill', 'chromium'], check=False, timeout=2)
-                time.sleep(1)
-            except:
-                subprocess.run(['pkill', '-9', 'chromium'], check=False)
-        else:
-            # Standard CSS installation: try systemd service, fallback to direct kill
-            result = subprocess.run(['systemctl', 'restart', 'css-kiosk'], check=False)
-            if result.returncode != 0:
-                # Service doesn't exist, try killing chromium directly
-                subprocess.run(['pkill', 'chromium'], check=False)
-
+        restart_chromium()
         return jsonify({'success': True, 'message': 'Browser restarted'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -296,112 +271,46 @@ def rotate_display():
         return jsonify({'success': False, 'error': 'Invalid rotation. Must be 0, 90, 180, or 270'}), 400
 
     try:
-        # For FullPageOS with X11, use xrandr
-        if is_fullpageos():
-            # Get the user running X session
-            user = get_chromium_user()
+        # Use xrandr to rotate the display via X11
+        user = get_chromium_user()
 
-            # Detect primary display (run as the X user)
-            result = subprocess.run(
-                ['sudo', '-u', user, 'env', 'DISPLAY=:0', 'xrandr'],
-                capture_output=True,
-                text=True
-            )
+        # Detect primary display (run as the X user)
+        result = subprocess.run(
+            ['sudo', '-u', user, 'env', 'DISPLAY=:0', 'xrandr'],
+            capture_output=True,
+            text=True
+        )
 
-            # Find connected display (HDMI-1, HDMI-2, etc.)
-            display_name = None
-            for line in result.stdout.split('\n'):
-                if 'connected primary' in line or 'connected' in line:
-                    display_name = line.split()[0]
-                    if 'connected' in line:
-                        break
+        # Find connected display (HDMI-1, HDMI-2, etc.)
+        display_name = None
+        for line in result.stdout.split('\n'):
+            if 'connected primary' in line or 'connected' in line:
+                display_name = line.split()[0]
+                if 'connected' in line:
+                    break
 
-            if not display_name:
-                return jsonify({'success': False, 'error': 'Could not detect display'}), 500
+        if not display_name:
+            return jsonify({'success': False, 'error': 'Could not detect display'}), 500
 
-            # Map rotation to xrandr values
-            rotation_map = {
-                0: 'normal',
-                90: 'right',
-                180: 'inverted',
-                270: 'left'
-            }
-            xrandr_rotation = rotation_map[rotation]
+        rotation_map = {0: 'normal', 90: 'right', 180: 'inverted', 270: 'left'}
+        xrandr_rotation = rotation_map[rotation]
 
-            # Apply rotation using xrandr (run as the X user)
-            subprocess.run(
-                ['sudo', '-u', user, 'env', 'DISPLAY=:0', 'xrandr', '--output', display_name, '--rotate', xrandr_rotation],
-                check=True
-            )
+        # Apply rotation using xrandr (run as the X user)
+        subprocess.run(
+            ['sudo', '-u', user, 'env', 'DISPLAY=:0', 'xrandr', '--output', display_name, '--rotate', xrandr_rotation],
+            check=True
+        )
 
-            # Save rotation to config so screenshot can apply it
-            config = load_config()
-            config['screen_rotation'] = rotation
-            save_config(config)
+        # Save rotation to config so screenshot can apply it
+        config = load_config()
+        config['screen_rotation'] = rotation
+        save_config(config)
 
-            # Make rotation persistent by creating autostart script
-            autostart_dir = f'/home/{user}/.config/autostart'
-            os.makedirs(autostart_dir, exist_ok=True)
-
-            desktop_file = f'{autostart_dir}/css-rotation.desktop'
-            desktop_content = f'''[Desktop Entry]
-Type=Application
-Name=CSS Display Rotation
-Exec=sh -c "sleep 2 && DISPLAY=:0 xrandr --output {display_name} --rotate {xrandr_rotation}"
-Hidden=false
-NoDisplay=false
-X-GNOME-Autostart-enabled=true
-'''
-            with open(desktop_file, 'w') as f:
-                f.write(desktop_content)
-
-            # Set ownership
-            import pwd
-            user = get_chromium_user()
-            uid = pwd.getpwnam(user).pw_uid
-            gid = pwd.getpwnam(user).pw_gid
-            os.chown(desktop_file, uid, gid)
-
-            return jsonify({
-                'success': True,
-                'message': f'Display rotated to {rotation}°. Rotation applied immediately and will persist after reboot.',
-                'reboot_required': False
-            })
-
-        else:
-            # Fallback to boot config for non-FullPageOS systems
-            config_file = '/boot/firmware/config.txt'
-
-            with open(config_file, 'r') as f:
-                content = f.read()
-
-            lines = content.split('\n')
-            filtered_lines = []
-            for line in lines:
-                stripped = line.strip()
-                if not (stripped.startswith('display_rotate=') or
-                       stripped.startswith('lcd_rotate=') or
-                       stripped.startswith('#display_rotate=') or
-                       stripped.startswith('#lcd_rotate=')):
-                    filtered_lines.append(line)
-
-            config_content = '\n'.join(filtered_lines)
-
-            rotation_map = {0: 0, 90: 1, 180: 2, 270: 3}
-            rotation_value = rotation_map[rotation]
-
-            rotation_config = f'\n# CSS Signage - Display Rotation\ndisplay_rotate={rotation_value}\nlcd_rotate={rotation_value}\n'
-
-            with open(config_file, 'w') as f:
-                f.write(config_content.rstrip() + rotation_config)
-
-            os.sync()
-
-            return jsonify({
-                'success': True,
-                'message': f'Display rotation set to {rotation}°. Reboot required to apply.',
-                'reboot_required': True
-            })
+        return jsonify({
+            'success': True,
+            'message': f'Display rotated to {rotation}°. Rotation applied immediately and will persist after reboot.',
+            'reboot_required': False
+        })
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -614,19 +523,10 @@ def reboot_settings():
 
 @app.route('/api/browser/flags', methods=['POST'])
 def configure_browser_flags():
-    """Configure Chromium flags (FullPageOS only)"""
-    if not is_fullpageos():
-        return jsonify({'success': False, 'error': 'Only supported on FullPageOS'}), 400
-
+    """Configure Chromium flags to disable translate"""
     try:
-        # Configure chromium flags and preferences to disable translate
         configure_chromium_preferences()
-
-        # Restart browser to apply new flags
-        try:
-            subprocess.run(['pkill', 'chromium'], check=False, timeout=2)
-        except:
-            subprocess.run(['pkill', '-9', 'chromium'], check=False)
+        restart_chromium()
 
         return jsonify({
             'success': True,
@@ -670,24 +570,7 @@ def upload_image():
         save_config(config)
 
         # Update FullPageOS config and restart browser
-        if is_fullpageos():
-            try:
-                with open(FULLPAGEOS_CONFIG, 'w') as f:
-                    f.write(image_url + '\n')
-                os.sync()
-            except Exception as e:
-                print(f"Warning: Could not write FullPageOS config: {e}")
-
-            # Kill chromium to trigger restart
-            try:
-                subprocess.run(['pkill', 'chromium'], check=False, timeout=2)
-                time.sleep(1)
-            except:
-                subprocess.run(['pkill', '-9', 'chromium'], check=False)
-        else:
-            result = subprocess.run(['systemctl', 'restart', 'css-kiosk'], check=False)
-            if result.returncode != 0:
-                subprocess.run(['pkill', 'chromium'], check=False)
+        update_display_url(image_url)
 
         return jsonify({'success': True, 'message': 'Image uploaded and displaying', 'filename': filename})
 
@@ -826,9 +709,6 @@ def get_chromium_user():
 
 def configure_chromium_preferences():
     """Configure Chromium to disable translation via /etc/chromium.d/ and Preferences JSON"""
-    if not is_fullpageos():
-        return  # Only applies to FullPageOS
-
     try:
         user = get_chromium_user()
 
@@ -906,6 +786,60 @@ def configure_chromium_preferences():
     except Exception as e:
         print(f"⚠️ Warning: Could not configure Chromium: {e}")
 
+def start_network_monitor():
+    """Monitor internet connectivity and show offline page when network is down.
+    When the network comes back, restore the configured display URL."""
+    import threading
+
+    def _monitor():
+        offline_shown = False
+        # Wait for server and browser to be ready before starting checks
+        time.sleep(30)
+
+        while True:
+            try:
+                # Check internet by connecting to a reliable DNS server
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(5)
+                s.connect(("8.8.8.8", 53))
+                s.close()
+                online = True
+            except (socket.error, OSError):
+                online = False
+
+            if not online and not offline_shown:
+                # Network just went down - switch to offline page
+                print("Network down - showing offline page")
+                try:
+                    with open(FULLPAGEOS_CONFIG, 'w') as f:
+                        f.write('http://localhost:5000/offline\n')
+                    os.sync()
+                    restart_chromium()
+                    offline_shown = True
+                except Exception as e:
+                    print(f"Failed to show offline page: {e}")
+
+            elif online and offline_shown:
+                # Network restored - switch back to configured URL
+                print("Network restored - restoring display URL")
+                try:
+                    config = load_config()
+                    url = config.get('display_url', 'http://localhost:5000/waiting')
+                    # Don't restore if the configured URL is the offline page itself
+                    if 'offline' in url:
+                        url = 'http://localhost:5000/waiting'
+                    with open(FULLPAGEOS_CONFIG, 'w') as f:
+                        f.write(url + '\n')
+                    os.sync()
+                    restart_chromium()
+                    offline_shown = False
+                except Exception as e:
+                    print(f"Failed to restore display URL: {e}")
+
+            time.sleep(15)  # Check every 15 seconds
+
+    threading.Thread(target=_monitor, daemon=True).start()
+
 def apply_saved_rotation():
     """Apply saved screen rotation on startup (runs in background thread).
     Retries because X/Chromium may not be ready yet at boot."""
@@ -967,6 +901,9 @@ if __name__ == '__main__':
 
     # Apply saved rotation in background (doesn't block server startup)
     apply_saved_rotation()
+
+    # Start network monitor to show offline page when internet is down
+    start_network_monitor()
 
     # Run Flask server
     # host='0.0.0.0' allows external connections
