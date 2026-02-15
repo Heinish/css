@@ -191,16 +191,18 @@ def get_screenshot():
             # Wayland - use grim
             result = subprocess.run(['grim', screenshot_path], capture_output=True, timeout=5)
         else:
-            # X11 - use scrot with env to set DISPLAY and XAUTHORITY
-            # This matches the working manual command exactly:
-            # sudo -u box11 env DISPLAY=:0 XAUTHORITY=/home/box11/.Xauthority scrot /tmp/test.png
+            # X11 - use scrot as the X user
+            # Try using 'su' with shell command to properly set environment
             user = get_chromium_user()
             xauthority = f'/home/{user}/.Xauthority'
 
+            # Use su with -c to run command with environment variables
+            cmd = f'DISPLAY=:0 XAUTHORITY={xauthority} scrot {screenshot_path}'
             result = subprocess.run(
-                ['sudo', '-u', user, 'env', 'DISPLAY=:0', f'XAUTHORITY={xauthority}', 'scrot', screenshot_path],
+                ['su', user, '-c', cmd],
                 capture_output=True,
-                timeout=5
+                timeout=5,
+                shell=False
             )
 
         if result.returncode != 0:
