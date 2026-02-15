@@ -893,6 +893,53 @@ def configure_chromium_preferences():
     except Exception as e:
         print(f"⚠️ Warning: Could not configure Chromium: {e}")
 
+def apply_saved_rotation():
+    """Apply saved screen rotation on startup (runs in background thread).
+    Retries because X/Chromium may not be ready yet at boot."""
+    import threading
+    config = load_config()
+    rotation = config.get('screen_rotation', 0)
+    if not rotation or rotation == 0:
+        return
+
+    rotation_map = {90: 'right', 180: 'inverted', 270: 'left'}
+    xrandr_rotation = rotation_map.get(rotation)
+    if not xrandr_rotation:
+        return
+
+    def _apply():
+        for attempt in range(20):
+            time.sleep(5)
+            try:
+                user = get_chromium_user()
+
+                # Get display name
+                result = subprocess.run(
+                    ['sudo', '-u', user, 'env', 'DISPLAY=:0', 'xrandr'],
+                    capture_output=True, text=True, timeout=5
+                )
+
+                display_name = None
+                for line in result.stdout.split('\n'):
+                    if 'connected' in line:
+                        display_name = line.split()[0]
+                        break
+
+                if display_name:
+                    subprocess.run(
+                        ['sudo', '-u', user, 'env', 'DISPLAY=:0', 'xrandr',
+                         '--output', display_name, '--rotate', xrandr_rotation],
+                        check=True, timeout=5
+                    )
+                    print(f"✅ Applied saved rotation: {rotation}°")
+                    return
+            except Exception as e:
+                print(f"⚠️ Rotation attempt {attempt+1}/20: {e}")
+
+        print("❌ Could not apply saved rotation after 20 attempts")
+
+    threading.Thread(target=_apply, daemon=True).start()
+
 if __name__ == '__main__':
     # Configure Chromium to disable translation (flags + Preferences JSON)
     configure_chromium_preferences()
@@ -904,6 +951,9 @@ if __name__ == '__main__':
     print(f"Starting CSS Signage Agent API server on port {port}")
     print(f"Pi Name: {config.get('name', 'Unknown')}")
     print(f"Display URL: {config.get('display_url', 'Not set')}")
+
+    # Apply saved rotation in background (doesn't block server startup)
+    apply_saved_rotation()
 
     # Run Flask server
     # host='0.0.0.0' allows external connections
