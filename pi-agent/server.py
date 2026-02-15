@@ -559,8 +559,7 @@ def configure_browser_flags():
         return jsonify({'success': False, 'error': 'Only supported on FullPageOS'}), 400
 
     try:
-        # Configure both boot flags and user flags
-        ensure_chromium_flags()
+        # Configure chromium flags and preferences to disable translate
         configure_chromium_preferences()
 
         # Restart browser to apply new flags
@@ -734,49 +733,6 @@ def info():
         'status': 'running'
     })
 
-def ensure_chromium_flags():
-    """Ensure Chromium has the correct flags to disable translation and other unwanted features"""
-    if not is_fullpageos():
-        return  # Only applies to FullPageOS
-
-    flags_file = '/boot/firmware/fullpageos-flags.txt'
-    required_flags = [
-        '--disable-translate',
-        '--disable-features=Translate',
-        '--no-first-run',
-        '--noerrdialogs',
-        '--disable-infobars',
-        '--disable-session-crashed-bubble'
-    ]
-
-    try:
-        # Read existing flags if file exists
-        existing_flags = []
-        if os.path.exists(flags_file):
-            with open(flags_file, 'r') as f:
-                existing_flags = [line.strip() for line in f if line.strip()]
-
-        # Add missing flags
-        updated = False
-        for flag in required_flags:
-            if flag not in existing_flags:
-                existing_flags.append(flag)
-                updated = True
-
-        # Write back if updated
-        if updated:
-            with open(flags_file, 'w') as f:
-                for flag in existing_flags:
-                    f.write(flag + '\n')
-            os.sync()
-            print(f"✅ Updated Chromium flags in {flags_file}")
-            print("   Flags updated. Browser restart required to apply.")
-        else:
-            print(f"✅ Chromium flags already configured correctly")
-
-    except Exception as e:
-        print(f"⚠️ Warning: Could not update Chromium flags: {e}")
-
 def get_chromium_user():
     """Detect which user is running Chromium / X session"""
     try:
@@ -824,9 +780,15 @@ def configure_chromium_preferences():
         os.makedirs(config_dir, exist_ok=True)
 
         # ===== PART 1: Create chromium-flags.conf =====
+        # IMPORTANT: --disable-features must be a SINGLE flag with comma-separated values
+        # Multiple --disable-features= lines causes Chromium to only use the last one
         required_flags = [
             '--disable-features=Translate,TranslateUI',
-            '--disable-translate'
+            '--disable-translate',
+            '--no-first-run',
+            '--noerrdialogs',
+            '--disable-infobars',
+            '--disable-session-crashed-bubble'
         ]
 
         # Read existing flags if file exists
@@ -834,6 +796,12 @@ def configure_chromium_preferences():
         if os.path.exists(flags_file):
             with open(flags_file, 'r') as f:
                 existing_flags = [line.strip() for line in f if line.strip()]
+
+        # Remove old broken separate --disable-features lines that conflict
+        # (Chromium only uses the LAST --disable-features= flag, so separate lines break things)
+        existing_flags = [f for f in existing_flags if not (
+            f.startswith('--disable-features=') and f != '--disable-features=Translate,TranslateUI'
+        )]
 
         # Add missing flags
         flags_updated = False
@@ -892,9 +860,8 @@ def configure_chromium_preferences():
         print(f"⚠️ Warning: Could not configure Chromium: {e}")
 
 if __name__ == '__main__':
-    # Ensure Chromium flags are configured to disable translation
-    ensure_chromium_flags()
-    configure_chromium_preferences()  # Create chromium-flags.conf to disable translate
+    # Configure Chromium to disable translation (flags + Preferences JSON)
+    configure_chromium_preferences()
 
     # Load port from config
     config = load_config()
