@@ -169,6 +169,10 @@ function setupIpcHandlers() {
     return getPiStatus(ip);
   });
 
+  ipcMain.handle('pi:updateConfig', async (event, ip, config) => {
+    return ApiService.updatePiConfig(ip, config);
+  });
+
   ipcMain.handle('pi:changeUrl', async (event, ip, url) => {
     return changeUrl(ip, url);
   });

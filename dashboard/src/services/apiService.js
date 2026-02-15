@@ -42,6 +42,24 @@ class ApiService {
   }
 
   /**
+   * Update Pi configuration
+   * @param {string} ip - Pi IP address
+   * @param {object} config - Configuration updates {name, room, display_url}
+   * @returns {Promise<object>} Success response
+   */
+  static async updatePiConfig(ip, config) {
+    try {
+      const response = await axios.post(`http://${ip}:5000/api/config`,
+        config,
+        { timeout: API_TIMEOUT }
+      );
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: this.formatError(error) };
+    }
+  }
+
+  /**
    * Change displayed URL on Pi
    * @param {string} ip - Pi IP address
    * @param {string} url - New URL to display

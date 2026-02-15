@@ -5,6 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   // Pi HTTP operations (via main process to bypass CSP)
   getPiStatus: (ip) => ipcRenderer.invoke('pi:getStatus', ip),
+  updatePiConfig: (ip, config) => ipcRenderer.invoke('pi:updateConfig', ip, config),
   changePiUrl: (ip, url) => ipcRenderer.invoke('pi:changeUrl', ip, url),
   restartPiBrowser: (ip) => ipcRenderer.invoke('pi:restartBrowser', ip),
   rebootPi: (ip) => ipcRenderer.invoke('pi:reboot', ip),

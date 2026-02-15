@@ -779,11 +779,25 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
 
   async function handleSaveGeneral() {
     try {
-      const updates = { name: piName };
+      // Update room if changed
       if (piRoom !== (pi.room_id || '')) {
         await window.api.assignPiToRoom(pi.id, piRoom ? parseInt(piRoom) : null);
       }
-      await window.api.updatePi(pi.id, updates);
+
+      // Update name in both local database AND Pi's config
+      const dbUpdates = { name: piName };
+      const piConfigUpdates = { name: piName };
+
+      // Save to Pi's config first
+      const result = await window.api.updatePiConfig(pi.ip_address, piConfigUpdates);
+      if (!result.success) {
+        alert('❌ Failed to update Pi config: ' + result.error);
+        return;
+      }
+
+      // Then update local database
+      await window.api.updatePi(pi.id, dbUpdates);
+
       alert('✅ Settings saved!');
       onUpdate();
       onClose();
