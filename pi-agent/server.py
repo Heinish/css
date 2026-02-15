@@ -486,6 +486,17 @@ static domain_name_servers={dns}
                 with open('/etc/dhcpcd.conf', 'w') as f:
                     f.write(dhcpcd_config)
 
+        # Switch display to waiting page so the new IP is shown after reboot
+        config = load_config()
+        config['display_url'] = 'http://localhost:5000/waiting'
+        save_config(config)
+        try:
+            with open(FULLPAGEOS_CONFIG, 'w') as f:
+                f.write('http://localhost:5000/waiting\n')
+            os.sync()
+        except:
+            pass
+
         # Prepare response
         response_data = {
             'success': True,
