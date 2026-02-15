@@ -44,14 +44,18 @@ CSS turns Raspberry Pi devices into dedicated signage displays managed from a Wi
 
 ## Quick Start
 
-### 1. Set up the Pi
+### 1. Install the Dashboard
+
+Download [CSS-Dashboard-Setup.exe](https://github.com/Heinish/css/releases/latest) and run it. No admin rights needed - it installs and launches automatically.
+
+### 2. Set up the Pi
 
 Flash **FullPageOS** to the SD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/):
 - Choose "Use custom" and select the FullPageOS image
 - Configure WiFi and enable SSH in the imager settings
 - Flash and boot the Pi
 
-### 2. Install CSS Agent
+### 3. Install CSS Agent
 
 SSH into the Pi and run:
 
@@ -66,11 +70,11 @@ This installs the CSS agent on top of FullPageOS. It will:
 - Disable Chromium's translate popup
 - Configure log rotation
 
-### 3. Restart Chromium
+### 4. Restart Chromium
 
 After installation, restart Chromium when prompted (or reboot the Pi).
 
-### 4. Add Pi to Dashboard
+### 5. Add Pi to Dashboard
 
 Open the CSS Dashboard on your Windows PC, click "Add Pi", and enter the Pi's IP address.
 
@@ -149,13 +153,12 @@ sudo systemctl restart css-agent
 css/
 ├── pi-agent/                  # Raspberry Pi agent
 │   ├── server.py              # Flask REST API
-│   ├── take-screenshot.sh     # Screenshot helper
 │   ├── scripts/
 │   │   ├── install-fullpageos.sh  # Installation script
 │   │   └── setup-log-rotation.sh  # Log rotation setup
 │   ├── static/
 │   │   ├── waiting.html       # Default waiting page
-│   │   └── offline.html       # Offline page
+│   │   └── offline.html       # Offline fallback page
 │   └── systemd/               # Service and timer files
 │
 ├── dashboard/                 # Electron desktop app (Windows)
@@ -163,7 +166,7 @@ css/
 │   │   ├── main.js            # Main process (IPC + HTTP)
 │   │   ├── preload.js         # IPC bridge
 │   │   ├── renderer.js        # React UI
-│   │   └── database/          # SQLite local database
+│   │   └── database/          # JSON local database
 │   └── package.json
 │
 └── README.md
