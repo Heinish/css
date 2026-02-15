@@ -795,17 +795,20 @@ def configure_chromium_preferences():
             print(f"✅ {chromiumd_file} already configured")
 
         # ===== PART 2: Patch FullPageOS launch script =====
+        # The start script has --disable-features=TranslateUI which overrides our flags.
+        # We must change it to --disable-features=Translate,TranslateUI in the script itself.
         import glob as g
-        translate_flags = '--disable-features=Translate,TranslateUI --disable-translate'
         for pattern in [f'/home/{user}/scripts/start_chromium_browser',
-                        '/home/*/scripts/start_chromium_browser']:
+                        '/home/*/scripts/start_chromium_browser',
+                        '/opt/custompios/scripts/start_chromium_browser',
+                        '/opt/fullpageos/scripts/start_chromium_browser']:
             for launch_script in g.glob(pattern):
                 if os.path.isfile(launch_script):
                     with open(launch_script, 'r') as f:
                         content = f.read()
-                    if 'disable-features=Translate' not in content:
-                        content = content.replace('chromium-browser',
-                                                  f'chromium-browser {translate_flags}')
+                    if '--disable-features=TranslateUI' in content and '--disable-features=Translate,TranslateUI' not in content:
+                        content = content.replace('--disable-features=TranslateUI',
+                                                  '--disable-features=Translate,TranslateUI')
                         with open(launch_script, 'w') as f:
                             f.write(content)
                         print(f"✅ Patched launch script: {launch_script}")

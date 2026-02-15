@@ -131,23 +131,29 @@ CHROMIUMD_EOF
 echo "  Created /etc/chromium.d/99-css-disable-translate"
 
 # === FIX 2: Patch FullPageOS start_chromium_browser script ===
-# FullPageOS has its own script that launches Chromium. We need to inject flags there too
-# because it may call chromium-browser with --app= which can bypass some flag loading.
-TRANSLATE_FLAGS="--disable-features=Translate,TranslateUI --disable-translate"
+# FullPageOS has a flags array with --disable-features=TranslateUI (only UI, not the engine).
+# If there are TWO --disable-features= flags, Chromium only uses the LAST one.
+# So we MUST change TranslateUI to Translate,TranslateUI in the start script itself,
+# and also add --disable-translate to the flags array.
 PATCHED_LAUNCH=false
 
-# Search for the FullPageOS chromium launch script
+# Search all known locations for the FullPageOS chromium launch script
 for launch_script in \
     "$CHROMIUM_HOME/scripts/start_chromium_browser" \
     /home/*/scripts/start_chromium_browser \
+    /opt/custompios/scripts/start_chromium_browser \
     /opt/fullpageos/scripts/start_chromium_browser; do
     if [ -f "$launch_script" ]; then
-        if ! grep -q "disable-features=Translate" "$launch_script" 2>/dev/null; then
-            # Insert translate flags before the first chromium-browser call
-            sed -i "s|chromium-browser|chromium-browser $TRANSLATE_FLAGS|g" "$launch_script"
+        # Replace --disable-features=TranslateUI with the full Translate,TranslateUI
+        if grep -q "disable-features=TranslateUI" "$launch_script" 2>/dev/null; then
+            sed -i 's|--disable-features=TranslateUI|--disable-features=Translate,TranslateUI|g' "$launch_script"
+            # Also add --disable-translate flag if not present
+            if ! grep -q "\-\-disable-translate" "$launch_script" 2>/dev/null; then
+                sed -i 's|--disable-features=Translate,TranslateUI|--disable-features=Translate,TranslateUI\n   --disable-translate|' "$launch_script"
+            fi
             echo "  Patched: $launch_script"
             PATCHED_LAUNCH=true
-        else
+        elif grep -q "disable-features=Translate,TranslateUI" "$launch_script" 2>/dev/null; then
             echo "  Already patched: $launch_script"
             PATCHED_LAUNCH=true
         fi
