@@ -38,6 +38,9 @@ mkdir -p /etc/css
 
 echo ""
 echo "Step 4: Installing CSS agent from GitHub..."
+# Move to a safe directory first - if we're inside /opt/css, removing it
+# would destroy our working directory and cause git clone to fail
+cd /tmp
 # Remove existing directory/symlink if it exists
 rm -rf /opt/css
 rm -rf /opt/css-agent
