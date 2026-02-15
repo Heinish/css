@@ -34,16 +34,16 @@ pip3 install --break-system-packages flask psutil
 
 echo ""
 echo "Step 3: Creating directories..."
-mkdir -p /opt/css-agent
 mkdir -p /etc/css
 
 echo ""
 echo "Step 4: Installing CSS agent from GitHub..."
-# Remove existing directory if it exists
+# Remove existing directory/symlink if it exists
 rm -rf /opt/css
+rm -f /opt/css-agent
 # Clone entire repo to /opt/css (keep as git repo for updates)
 git clone https://github.com/Heinish/css.git /opt/css
-# Create symlink for backwards compatibility
+# Create symlink so /opt/css-agent points to /opt/css/pi-agent
 ln -sf /opt/css/pi-agent /opt/css-agent
 chmod +x /opt/css/pi-agent/scripts/*.sh
 
@@ -66,8 +66,8 @@ fi
 echo ""
 echo "Step 6: Installing CSS API service..."
 # Only install the API service, not the kiosk (FullPageOS handles that)
-# Run as root to allow writing to /boot/firmware and /etc/css
-sed "s|User=pi|# User removed - running as root|g; s|/home/pi|$ACTUAL_HOME|g" \
+# Replace {USER} placeholder with actual user, but run as root for /boot/firmware access
+sed "s|{USER}|root|g; s|/home/pi|$ACTUAL_HOME|g" \
     /opt/css-agent/systemd/css-agent.service > /etc/systemd/system/css-agent.service
 systemctl daemon-reload
 
