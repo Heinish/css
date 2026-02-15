@@ -230,8 +230,6 @@ echo "Next steps:"
 echo "1. Add this Pi to your CSS Dashboard"
 echo "2. Configure display URL via dashboard"
 echo ""
-read -p "Would you like to restart Chromium now? (y/N) " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    pkill chromium
-fi
+echo "Please restart Chromium to apply changes:"
+echo "  sudo pkill chromium"
+echo "  (or reboot: sudo reboot)"
