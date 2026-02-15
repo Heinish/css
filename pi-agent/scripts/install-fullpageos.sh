@@ -30,7 +30,7 @@ apt-get install -y python3-pip jq git grim scrot fbgrab
 
 echo ""
 echo "Step 2: Installing Python packages..."
-pip3 install --break-system-packages flask psutil
+pip3 install --break-system-packages flask psutil Pillow
 
 echo ""
 echo "Step 3: Creating directories..."

@@ -238,6 +238,27 @@ def get_screenshot():
                 os.unlink(screenshot_path)
             return jsonify({'success': False, 'error': f'Screenshot capture failed: {error_msg}'}), 500
 
+        # Apply rotation to match what the display actually shows
+        # fbgrab captures the raw framebuffer which doesn't include xrandr rotation
+        try:
+            config = load_config()
+            rotation = config.get('screen_rotation', 0)
+            if rotation and rotation != 0:
+                from PIL import Image
+                img = Image.open(screenshot_path)
+                # PIL rotate is counter-clockwise, xrandr rotation is CW
+                # rotation 90 (right) = rotate image 270° CCW = 90° CW
+                # rotation 180 (inverted) = rotate 180°
+                # rotation 270 (left) = rotate image 90° CCW = 270° CW
+                pil_degrees = {90: 270, 180: 180, 270: 90}.get(rotation, 0)
+                if pil_degrees:
+                    img = img.rotate(pil_degrees, expand=True)
+                    img.save(screenshot_path)
+        except ImportError:
+            print("⚠️ Pillow not installed, screenshot may not match display rotation")
+        except Exception as e:
+            print(f"⚠️ Could not rotate screenshot: {e}")
+
         # Send file with callback to cleanup after sending
         @after_this_request
         def cleanup(response):
@@ -312,6 +333,11 @@ def rotate_display():
                 ['sudo', '-u', user, 'env', 'DISPLAY=:0', 'xrandr', '--output', display_name, '--rotate', xrandr_rotation],
                 check=True
             )
+
+            # Save rotation to config so screenshot can apply it
+            config = load_config()
+            config['screen_rotation'] = rotation
+            save_config(config)
 
             # Make rotation persistent by creating autostart script
             autostart_dir = f'/home/{user}/.config/autostart'
