@@ -203,7 +203,7 @@ def get_screenshot():
             user = get_chromium_user()
 
             result = subprocess.run(
-                ['sudo', '-u', user, 'bash', script_path, screenshot_path],
+                ['sudo', '-H', '-u', user, 'bash', script_path, screenshot_path],
                 capture_output=True,
                 timeout=5
             )
