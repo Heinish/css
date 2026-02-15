@@ -105,13 +105,11 @@ PREFS_EOF
 chown $ACTUAL_USER:$ACTUAL_USER /home/$ACTUAL_USER/.config/chromium/Default/Preferences
 
 echo ""
-echo "Step 8: Enabling CSS API service, auto-update timer, and daily reboot..."
+echo "Step 8: Enabling CSS API service..."
 systemctl enable css-agent.service
 systemctl start css-agent.service
-systemctl enable css-auto-update.timer
-systemctl start css-auto-update.timer
-systemctl enable css-daily-reboot.timer
-systemctl start css-daily-reboot.timer
+echo "  ℹ️  Auto-update and daily reboot timers are installed but disabled"
+echo "  ℹ️  Enable them via the dashboard or API as needed"
 
 echo ""
 echo "Step 9: Configuring log rotation to prevent SD card filling..."
