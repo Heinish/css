@@ -42,12 +42,23 @@ CSS (Cheap Signage Solutions) allows you to turn Raspberry Pi devices into dedic
 
 ### Option 1: Manual Installation (Current)
 
+
+**One line installer**
+ ```bash
+   curl -sSL https://raw.githubusercontent.com/Heinish/css/main/pi-agent/scripts/install-fullpageos.sh | sudo bash
+  ```
+
+
+
 1. **Flash Raspberry Pi OS (WITH DESKTOP)**
    ```bash
    # Use Raspberry Pi Imager to flash Raspberry Pi OS (64-bit) WITH DESKTOP
    # ⚠️ IMPORTANT: Do NOT use "Lite" - you need the full version with desktop!
    # Enable SSH and configure WiFi if needed in the imager settings
    ```
+
+
+
 
 2. **Clone this repository on the Pi**
    ```bash
