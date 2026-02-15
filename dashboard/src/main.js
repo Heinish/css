@@ -60,6 +60,15 @@ async function getPiStatus(ip) {
   }
 }
 
+async function updatePiConfig(ip, config) {
+  try {
+    const response = await axios.post(`http://${ip}:5000/api/config`, config, { timeout: 5000 });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
 async function changeUrl(ip, url) {
   try {
     const response = await axios.post(`http://${ip}:5000/api/display/url`, { url }, { timeout: 5000 });
@@ -170,7 +179,7 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('pi:updateConfig', async (event, ip, config) => {
-    return ApiService.updatePiConfig(ip, config);
+    return updatePiConfig(ip, config);
   });
 
   ipcMain.handle('pi:changeUrl', async (event, ip, url) => {
