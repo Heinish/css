@@ -192,21 +192,42 @@ def get_screenshot():
         import time
         screenshot_path = f'/tmp/css-screenshot-{int(time.time())}.png'
 
-        # Detect display server and capture screenshot
-        if os.environ.get('WAYLAND_DISPLAY'):
-            # Wayland - use grim
-            result = subprocess.run(['grim', screenshot_path], capture_output=True, timeout=5)
-        else:
-            # X11 - use the take-screenshot.sh wrapper script
-            # This runs scrot as the correct user with proper DISPLAY/XAUTHORITY
-            script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'take-screenshot.sh')
-            user = get_chromium_user()
+        # Try multiple screenshot methods until one works
+        result = None
+        user = get_chromium_user()
 
+        # Method 1: scrot with explicit env vars (no wrapper script, no $HOME dependency)
+        xauthority = f'/home/{user}/.Xauthority'
+        try:
             result = subprocess.run(
-                ['sudo', '-H', '-u', user, 'bash', script_path, screenshot_path],
-                capture_output=True,
-                timeout=5
+                ['sudo', '-u', user, 'env', 'DISPLAY=:0', f'XAUTHORITY={xauthority}',
+                 'scrot', screenshot_path],
+                capture_output=True, timeout=5
             )
+        except Exception as e:
+            print(f"⚠️ scrot attempt failed: {e}")
+
+        # Method 2: fbgrab - captures framebuffer directly, no X11 auth needed
+        if result is None or result.returncode != 0:
+            print("ℹ️ scrot failed, trying fbgrab (framebuffer)...")
+            try:
+                result = subprocess.run(
+                    ['fbgrab', screenshot_path],
+                    capture_output=True, timeout=5
+                )
+            except Exception as e:
+                print(f"⚠️ fbgrab attempt failed: {e}")
+
+        # Method 3: Try with DISPLAY=:0 as root (some setups allow this)
+        if result is None or result.returncode != 0:
+            print("ℹ️ fbgrab failed, trying scrot as root...")
+            try:
+                result = subprocess.run(
+                    ['env', 'DISPLAY=:0', 'scrot', screenshot_path],
+                    capture_output=True, timeout=5
+                )
+            except Exception as e:
+                print(f"⚠️ scrot-as-root attempt failed: {e}")
 
         if result.returncode != 0:
             # Log detailed error information

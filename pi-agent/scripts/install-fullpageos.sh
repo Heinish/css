@@ -26,7 +26,7 @@ echo ""
 
 echo "Step 1: Installing system packages..."
 apt-get update
-apt-get install -y python3-pip jq git grim scrot
+apt-get install -y python3-pip jq git grim scrot fbgrab
 
 echo ""
 echo "Step 2: Installing Python packages..."
