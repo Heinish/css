@@ -318,6 +318,39 @@ function PiCard({ pi, rooms, urls, onRemove, onUpdate }) {
   const [rebooting, setRebooting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [screenshot, setScreenshot] = useState(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+
+  // Auto-refresh screenshot
+  useEffect(() => {
+    if (!autoRefresh || !showPreview) return;
+    const interval = setInterval(async () => {
+      const result = await window.api.getScreenshot(pi.ip_address);
+      if (result.success) setScreenshot(result.data);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, showPreview, pi.ip_address]);
+
+  async function handlePreview() {
+    setLoadingPreview(true);
+    const result = await window.api.getScreenshot(pi.ip_address);
+    if (result.success) {
+      setScreenshot(result.data);
+      setShowPreview(true);
+    } else {
+      alert('Failed to get screenshot: ' + result.error);
+    }
+    setLoadingPreview(false);
+  }
+
+  async function refreshScreenshot() {
+    setLoadingPreview(true);
+    const result = await window.api.getScreenshot(pi.ip_address);
+    if (result.success) setScreenshot(result.data);
+    setLoadingPreview(false);
+  }
 
   async function handleChangeUrl() {
     setNewUrl(pi.current_url || 'https://');
@@ -454,6 +487,11 @@ function PiCard({ pi, rooms, urls, onRemove, onUpdate }) {
           disabled: !pi.online || rebooting
         }, rebooting ? '⏳ Rebooting...' : '⚡ Reboot'),
         h('button', {
+          className: 'btn btn-sm',
+          onClick: handlePreview,
+          disabled: !pi.online || loadingPreview
+        }, loadingPreview ? '⏳ Loading...' : '📸 Preview'),
+        h('button', {
           className: 'btn btn-sm btn-secondary',
           onClick: () => setShowSettings(true)
         }, '⚙️ Settings'),
@@ -461,6 +499,30 @@ function PiCard({ pi, rooms, urls, onRemove, onUpdate }) {
           className: 'btn btn-sm btn-danger',
           onClick: onRemove
         }, '🗑️ Remove')
+      )
+    ),
+
+    // Screenshot Preview Modal
+    showPreview && h('div', { className: 'modal', onClick: () => { setShowPreview(false); setAutoRefresh(false); } },
+      h('div', { className: 'modal-content large', onClick: (e) => e.stopPropagation() },
+        h('h2', null, '📸 Preview - ' + pi.name),
+        screenshot && h('img', {
+          src: `data:image/png;base64,${screenshot}`,
+          style: { width: '100%', borderRadius: '8px', marginTop: '10px' },
+          alt: 'Pi Screenshot'
+        }),
+        h('div', { className: 'form-actions', style: { marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' } },
+          h('button', {
+            className: 'btn btn-primary',
+            onClick: refreshScreenshot,
+            disabled: loadingPreview
+          }, loadingPreview ? '⏳ Refreshing...' : '🔄 Refresh'),
+          h('button', {
+            className: autoRefresh ? 'btn btn-warning' : 'btn btn-secondary',
+            onClick: () => setAutoRefresh(!autoRefresh)
+          }, autoRefresh ? '⏸️ Stop Auto-Refresh' : '▶️ Auto-Refresh (5s)'),
+          h('button', { className: 'btn btn-secondary', onClick: () => { setShowPreview(false); setAutoRefresh(false); } }, 'Close')
+        )
       )
     ),
 
