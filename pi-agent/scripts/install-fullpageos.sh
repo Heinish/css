@@ -86,12 +86,53 @@ chmod 666 /boot/firmware/fullpageos.txt
 
 echo ""
 echo "Step 7: Disabling Chromium translate popup..."
-# Create Chromium config directory
-mkdir -p /home/$ACTUAL_USER/.config/chromium/Default
-chown -R $ACTUAL_USER:$ACTUAL_USER /home/$ACTUAL_USER/.config/chromium
+# Detect which user FullPageOS runs the X session / Chromium as
+# This varies per Pi - we detect it dynamically, never hardcode
+CHROMIUM_USER=""
 
-# Disable translate completely in Chromium preferences (button + popup)
-cat > /home/$ACTUAL_USER/.config/chromium/Default/Preferences <<'PREFS_EOF'
+# Method 1: Check who's running Chromium right now
+if [ -z "$CHROMIUM_USER" ]; then
+    CHROMIUM_USER=$(ps aux 2>/dev/null | grep '[c]hromium' | head -1 | awk '{print $1}')
+fi
+
+# Method 2: Check who's running the X server
+if [ -z "$CHROMIUM_USER" ] || [ "$CHROMIUM_USER" = "root" ]; then
+    CHROMIUM_USER=$(ps aux 2>/dev/null | grep '[X]org' | head -1 | awk '{print $1}')
+fi
+
+# Method 3: Check lightdm auto-login config (FullPageOS uses lightdm)
+if [ -z "$CHROMIUM_USER" ] || [ "$CHROMIUM_USER" = "root" ]; then
+    if [ -f /etc/lightdm/lightdm.conf ]; then
+        CHROMIUM_USER=$(grep -oP 'autologin-user=\K.*' /etc/lightdm/lightdm.conf 2>/dev/null)
+    fi
+fi
+
+# Method 4: Fallback to the user who ran the install
+if [ -z "$CHROMIUM_USER" ] || [ "$CHROMIUM_USER" = "root" ]; then
+    CHROMIUM_USER="$ACTUAL_USER"
+fi
+
+CHROMIUM_HOME="/home/$CHROMIUM_USER"
+echo "  Chromium user detected: $CHROMIUM_USER"
+
+# Both fixes are required together - neither works alone:
+#   1. chromium-flags.conf with --disable-features=Translate
+#   2. Preferences JSON with "translate": {"enabled": false}
+
+# Create Chromium config directory for the CORRECT user
+mkdir -p $CHROMIUM_HOME/.config/chromium/Default
+chown -R $CHROMIUM_USER:$CHROMIUM_USER $CHROMIUM_HOME/.config/chromium
+
+# FIX 1: Create chromium-flags.conf (Chromium reads this at startup on Linux)
+cat > $CHROMIUM_HOME/.config/chromium-flags.conf <<'FLAGS_EOF'
+--disable-features=Translate,TranslateUI
+--disable-translate
+FLAGS_EOF
+chown $CHROMIUM_USER:$CHROMIUM_USER $CHROMIUM_HOME/.config/chromium-flags.conf
+echo "  Created chromium-flags.conf for user $CHROMIUM_USER"
+
+# FIX 2: Disable translate in Preferences JSON
+cat > $CHROMIUM_HOME/.config/chromium/Default/Preferences <<'PREFS_EOF'
 {
    "translate": {
       "enabled": false
@@ -102,7 +143,8 @@ cat > /home/$ACTUAL_USER/.config/chromium/Default/Preferences <<'PREFS_EOF'
    ]
 }
 PREFS_EOF
-chown $ACTUAL_USER:$ACTUAL_USER /home/$ACTUAL_USER/.config/chromium/Default/Preferences
+chown $CHROMIUM_USER:$CHROMIUM_USER $CHROMIUM_HOME/.config/chromium/Default/Preferences
+echo "  Created Preferences JSON for user $CHROMIUM_USER"
 
 echo ""
 echo "Step 8: Enabling CSS API service..."
@@ -129,14 +171,9 @@ else
     echo "Warning: /boot/firmware/fullpageos.txt not found - you may need to configure FullPageOS manually"
 fi
 
-# Add Chromium flags to disable translate UI completely
-cat > /boot/firmware/fullpageos-config.txt <<'CONFIG_EOF'
-# CSS Signage - Custom Chromium Flags
-# Disable translate popup and UI button
-chrome_options="--disable-translate --disable-features=TranslateUI"
-CONFIG_EOF
-chmod 666 /boot/firmware/fullpageos-config.txt
-echo "Added Chromium flags to disable translate UI"
+# Note: Chromium flags are set via ~/.config/chromium-flags.conf (Step 7)
+# The fullpageos-config.txt approach was removed as FullPageOS does not read it
+echo "Chromium translate fix applied via chromium-flags.conf and Preferences JSON (Step 7)"
 
 echo ""
 echo "======================================"

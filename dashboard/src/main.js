@@ -1,5 +1,7 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('node:path');
+const fs = require('node:fs');
+const FormData = require('form-data');
 const Database = require('./database/db');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -119,7 +121,7 @@ async function rotateScreen(ip, rotation) {
 
 async function changeNetworkConfig(ip, config) {
   try {
-    const response = await axios.post(`http://${ip}:5000/api/network/config`, config, { timeout: 5000 });
+    const response = await axios.post(`http://${ip}:5000/api/network/ip`, config, { timeout: 5000 });
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.message };
@@ -165,6 +167,30 @@ async function setRebootSettings(ip, enabled) {
 async function updatePiNow(ip) {
   try {
     const response = await axios.post(`http://${ip}:5000/api/update`, {}, { timeout: 60000 }); // 60s timeout for git pull
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function uploadImage(ip, imageBuffer, filename) {
+  try {
+    const form = new FormData();
+    form.append('image', imageBuffer, { filename: filename });
+    const response = await axios.post(`http://${ip}:5000/api/display/image`, form, {
+      headers: form.getHeaders(),
+      timeout: 30000,
+      maxContentLength: 20 * 1024 * 1024
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function deleteImage(ip) {
+  try {
+    const response = await axios.delete(`http://${ip}:5000/api/display/image`, { timeout: 5000 });
     return { success: true, data: response.data };
   } catch (error) {
     return { success: false, error: error.message };
@@ -225,6 +251,37 @@ function setupIpcHandlers() {
 
   ipcMain.handle('pi:updateNow', async (event, ip) => {
     return updatePiNow(ip);
+  });
+
+  // Image upload operations
+  ipcMain.handle('dialog:openImageFile', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Image to Upload',
+      filters: [
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }
+      ],
+      properties: ['openFile']
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { canceled: true };
+    }
+    const filePath = result.filePaths[0];
+    const imageBuffer = fs.readFileSync(filePath);
+    return {
+      canceled: false,
+      filename: path.basename(filePath),
+      imageBase64: imageBuffer.toString('base64'),
+      size: imageBuffer.length
+    };
+  });
+
+  ipcMain.handle('pi:uploadImage', async (event, ip, imageBase64, filename) => {
+    const buffer = Buffer.from(imageBase64, 'base64');
+    return uploadImage(ip, buffer, filename);
+  });
+
+  ipcMain.handle('pi:deleteImage', async (event, ip) => {
+    return deleteImage(ip);
   });
 
   // Pi database operations

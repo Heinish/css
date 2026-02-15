@@ -32,6 +32,11 @@ contextBridge.exposeInMainWorld('api', {
   removeRoom: (id) => ipcRenderer.invoke('db:removeRoom', id),
   assignPiToRoom: (piId, roomId) => ipcRenderer.invoke('db:assignPiToRoom', piId, roomId),
 
+  // Image upload operations
+  openImageDialog: () => ipcRenderer.invoke('dialog:openImageFile'),
+  uploadImage: (ip, imageBase64, filename) => ipcRenderer.invoke('pi:uploadImage', ip, imageBase64, filename),
+  deleteImage: (ip) => ipcRenderer.invoke('pi:deleteImage', ip),
+
   // URL operations
   getAllUrls: () => ipcRenderer.invoke('db:getAllUrls'),
   addUrl: (url, name) => ipcRenderer.invoke('db:addUrl', url, name),

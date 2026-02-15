@@ -5,6 +5,7 @@ Provides endpoints for managing the Raspberry Pi signage display
 """
 
 from flask import Flask, jsonify, request, send_from_directory, redirect, send_file, after_this_request
+from werkzeug.utils import secure_filename
 import subprocess
 import psutil
 import os
@@ -13,8 +14,13 @@ import time
 import socket
 from datetime import datetime
 import tempfile
+import glob as globmod
 
 app = Flask(__name__, static_folder='static')
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20 MB upload limit
+
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads')
+ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'}
 CONFIG_FILE = '/etc/css/config.json'
 FULLPAGEOS_CONFIG = '/boot/firmware/fullpageos.txt'
 
@@ -191,22 +197,15 @@ def get_screenshot():
             # Wayland - use grim
             result = subprocess.run(['grim', screenshot_path], capture_output=True, timeout=5)
         else:
-            # X11 - use scrot as the X user
-            # Use sudo -E to preserve environment variables
+            # X11 - use the take-screenshot.sh wrapper script
+            # This runs scrot as the correct user with proper DISPLAY/XAUTHORITY
+            script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'take-screenshot.sh')
             user = get_chromium_user()
-            xauthority = f'/home/{user}/.Xauthority'
 
-            # Build environment with X11 variables
-            env = os.environ.copy()
-            env['DISPLAY'] = ':0'
-            env['XAUTHORITY'] = xauthority
-
-            # Use sudo -E to preserve environment
             result = subprocess.run(
-                ['sudo', '-E', '-u', user, 'scrot', screenshot_path],
+                ['sudo', '-u', user, 'bash', script_path, screenshot_path],
                 capture_output=True,
-                timeout=5,
-                env=env
+                timeout=5
             )
 
         if result.returncode != 0:
@@ -294,7 +293,7 @@ def rotate_display():
             )
 
             # Make rotation persistent by creating autostart script
-            autostart_dir = '/home/box11/.config/autostart'
+            autostart_dir = f'/home/{user}/.config/autostart'
             os.makedirs(autostart_dir, exist_ok=True)
 
             desktop_file = f'{autostart_dir}/css-rotation.desktop'
@@ -577,6 +576,133 @@ def configure_browser_flags():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/display/image', methods=['POST'])
+def upload_image():
+    """Upload an image to display on the Pi"""
+    if 'image' not in request.files:
+        return jsonify({'success': False, 'error': 'No image file provided'}), 400
+
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No file selected'}), 400
+
+    # Validate extension
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        return jsonify({'success': False, 'error': f'Invalid file type. Allowed: {", ".join(ALLOWED_IMAGE_EXTENSIONS)}'}), 400
+
+    try:
+        # Ensure upload directory exists
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+        # Remove any existing display images
+        for old_file in globmod.glob(os.path.join(UPLOAD_FOLDER, 'display-image.*')):
+            os.unlink(old_file)
+
+        # Save the new image
+        filename = f'display-image.{ext}'
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+
+        # Update display URL to show the image
+        image_url = 'http://localhost:5000/api/display/image/view'
+        config = load_config()
+        config['display_url'] = image_url
+        save_config(config)
+
+        # Update FullPageOS config and restart browser
+        if is_fullpageos():
+            try:
+                with open(FULLPAGEOS_CONFIG, 'w') as f:
+                    f.write(image_url + '\n')
+                os.sync()
+            except Exception as e:
+                print(f"Warning: Could not write FullPageOS config: {e}")
+
+            # Kill chromium to trigger restart
+            try:
+                subprocess.run(['pkill', 'chromium'], check=False, timeout=2)
+                time.sleep(1)
+            except:
+                subprocess.run(['pkill', '-9', 'chromium'], check=False)
+        else:
+            result = subprocess.run(['systemctl', 'restart', 'css-kiosk'], check=False)
+            if result.returncode != 0:
+                subprocess.run(['pkill', 'chromium'], check=False)
+
+        return jsonify({'success': True, 'message': 'Image uploaded and displaying', 'filename': filename})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/display/image/view', methods=['GET'])
+def view_image():
+    """Serve a fullscreen HTML page displaying the uploaded image"""
+    # Find the current display image
+    for ext in ALLOWED_IMAGE_EXTENSIONS:
+        filepath = os.path.join(UPLOAD_FOLDER, f'display-image.{ext}')
+        if os.path.exists(filepath):
+            return f'''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="google" content="notranslate">
+<style>
+* {{ margin: 0; padding: 0; }}
+body {{
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}}
+img {{
+  max-width: 100vw;
+  max-height: 100vh;
+  object-fit: contain;
+}}
+</style>
+</head>
+<body>
+<img src="/static/uploads/display-image.{ext}" alt="">
+</body>
+</html>''', 200, {'Content-Type': 'text/html'}
+
+    return jsonify({'success': False, 'error': 'No image uploaded'}), 404
+
+@app.route('/api/display/image/current', methods=['GET'])
+def get_current_image():
+    """Get metadata about the currently uploaded image"""
+    for ext in ALLOWED_IMAGE_EXTENSIONS:
+        filepath = os.path.join(UPLOAD_FOLDER, f'display-image.{ext}')
+        if os.path.exists(filepath):
+            size = os.path.getsize(filepath)
+            return jsonify({
+                'has_image': True,
+                'filename': f'display-image.{ext}',
+                'size_bytes': size
+            })
+
+    return jsonify({'has_image': False})
+
+@app.route('/api/display/image', methods=['DELETE'])
+def delete_image():
+    """Delete the currently uploaded image"""
+    try:
+        deleted = False
+        for old_file in globmod.glob(os.path.join(UPLOAD_FOLDER, 'display-image.*')):
+            os.unlink(old_file)
+            deleted = True
+
+        if deleted:
+            return jsonify({'success': True, 'message': 'Image deleted'})
+        else:
+            return jsonify({'success': True, 'message': 'No image to delete'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/health', methods=['GET'])
 def health():
     """Health check endpoint"""
@@ -652,15 +778,33 @@ def ensure_chromium_flags():
         print(f"⚠️ Warning: Could not update Chromium flags: {e}")
 
 def get_chromium_user():
-    """Detect which user is running Chromium"""
+    """Detect which user is running Chromium / X session"""
     try:
+        # Method 1: Check who's running Chromium
         result = subprocess.run(['ps', 'aux'], capture_output=True, text=True)
         for line in result.stdout.split('\n'):
             if 'chromium' in line and 'chrome_crashpad_handler' not in line:
-                # Extract username from ps output (first column)
                 username = line.split()[0]
-                return username
-        return 'pi'  # Default fallback
+                if username != 'root':
+                    return username
+
+        # Method 2: Check who's running Xorg
+        for line in result.stdout.split('\n'):
+            if 'Xorg' in line:
+                username = line.split()[0]
+                if username != 'root':
+                    return username
+
+        # Method 3: Check lightdm auto-login config
+        if os.path.exists('/etc/lightdm/lightdm.conf'):
+            with open('/etc/lightdm/lightdm.conf', 'r') as f:
+                for line in f:
+                    if line.strip().startswith('autologin-user='):
+                        user = line.strip().split('=', 1)[1]
+                        if user:
+                            return user
+
+        return 'pi'  # Final fallback
     except:
         return 'pi'
 
@@ -681,8 +825,7 @@ def configure_chromium_preferences():
 
         # ===== PART 1: Create chromium-flags.conf =====
         required_flags = [
-            '--disable-features=Translate',
-            '--disable-features=TranslateUI',
+            '--disable-features=Translate,TranslateUI',
             '--disable-translate'
         ]
 

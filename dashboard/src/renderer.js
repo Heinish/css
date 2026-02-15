@@ -317,6 +317,7 @@ function PiCard({ pi, rooms, urls, onRemove, onUpdate }) {
   const [restarting, setRestarting] = useState(false);
   const [rebooting, setRebooting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   async function handleChangeUrl() {
     setNewUrl(pi.current_url || 'https://');
@@ -352,6 +353,26 @@ function PiCard({ pi, rooms, urls, onRemove, onUpdate }) {
     }
 
     setRestarting(false);
+  }
+
+  async function handleUploadImage() {
+    const fileResult = await window.api.openImageDialog();
+    if (fileResult.canceled) return;
+
+    if (fileResult.size > 20 * 1024 * 1024) {
+      alert('Image file is too large. Maximum size is 20 MB.');
+      return;
+    }
+
+    setUploading(true);
+    const result = await window.api.uploadImage(pi.ip_address, fileResult.imageBase64, fileResult.filename);
+    setUploading(false);
+
+    if (result.success) {
+      alert('✅ Image uploaded and now displaying on the Pi!');
+    } else {
+      alert('❌ Failed to upload image: ' + result.error);
+    }
   }
 
   async function handleReboot() {
@@ -417,6 +438,11 @@ function PiCard({ pi, rooms, urls, onRemove, onUpdate }) {
           onClick: handleChangeUrl,
           disabled: !pi.online || changing
         }, changing ? '⏳ Changing...' : '🔗 Change URL'),
+        h('button', {
+          className: 'btn btn-sm',
+          onClick: handleUploadImage,
+          disabled: !pi.online || uploading
+        }, uploading ? '⏳ Uploading...' : '🖼️ Upload Image'),
         h('button', {
           className: 'btn btn-sm',
           onClick: handleRestartBrowser,

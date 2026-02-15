@@ -3,5 +3,5 @@
 # This runs entirely in the user's context, avoiding sudo environment issues
 
 export DISPLAY=:0
-export XAUTHORITY=/home/box11/.Xauthority
+export XAUTHORITY="$HOME/.Xauthority"
 scrot "$1"
