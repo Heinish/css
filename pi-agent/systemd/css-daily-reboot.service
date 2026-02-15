@@ -1,11 +1,6 @@
 [Unit]
 Description=CSS Signage Daily Reboot
-RefuseManualStart=no
-RefuseManualStop=yes
 
 [Service]
 Type=oneshot
 ExecStart=/sbin/shutdown -r now
-
-[Install]
-WantedBy=multi-user.target

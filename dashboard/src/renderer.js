@@ -56,21 +56,12 @@ function App() {
   const [showRoomManager, setShowRoomManager] = useState(false);
   const [showUrlManager, setShowUrlManager] = useState(false);
   const [restartingAll, setRestartingAll] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('darkMode');
-    return saved === 'true';
-  });
 
   useEffect(() => {
     loadData();
     const interval = setInterval(refreshPiStatus, 60000); // Refresh every 1 minute
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    document.body.setAttribute('data-theme', darkMode ? 'dark' : 'light');
-    localStorage.setItem('darkMode', darkMode);
-  }, [darkMode]);
 
   async function loadData() {
     try {
@@ -243,11 +234,6 @@ function App() {
           }, refreshing ? '⏳ Refreshing...' : '🔄 Refresh')
         ),
         h('div', { className: 'toolbar-right' },
-          h('button', {
-            className: 'btn btn-sm theme-toggle',
-            onClick: () => setDarkMode(!darkMode),
-            title: darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'
-          }, darkMode ? '☀️ Light' : '🌙 Dark'),
           h('label', null, '🏢 Filter:'),
           h('select', {
             value: selectedRoom,

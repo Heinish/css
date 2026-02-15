@@ -34,22 +34,6 @@
     --shadow-color: rgba(0, 0, 0, 0.1);
 }
 
-[data-theme="dark"] {
-    --bg-primary: #0f0f1a;
-    --bg-secondary: #1a1a2e;
-    --bg-tertiary: #16162a;
-    --bg-card: linear-gradient(135deg, #1a1a2e 0%, #1e1e35 100%);
-    --bg-toolbar: linear-gradient(135deg, #1a1a2e, #16162a);
-    --text-primary: #f5f5f5;
-    --text-secondary: #d1d5db;
-    --text-tertiary: #9ca3af;
-    --border-color: rgba(168, 85, 247, 0.3);
-    --shadow-color: rgba(0, 0, 0, 0.5);
-    --gray-100: #2d2d44;
-    --gray-200: #3a3a52;
-    --gray-300: #4a4a62;
-}
-
 /* Dashboard Layout */
 .dashboard {
     display: flex;
@@ -609,24 +593,6 @@
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
-}
-
-/* Smooth theme transitions */
-body {
-    transition: background 0.3s ease, color 0.3s ease;
-}
-
-/* Dark mode scrollbar */
-[data-theme="dark"]::-webkit-scrollbar-track {
-    background: var(--bg-secondary);
-}
-
-[data-theme="dark"]::-webkit-scrollbar-thumb {
-    background: var(--gray-300);
-}
-
-[data-theme="dark"]::-webkit-scrollbar-thumb:hover {
-    background: var(--purple-color);
 }
 
 /* Responsive */

@@ -434,8 +434,12 @@ def update():
         output = result.stdout + result.stderr
 
         if success:
-            # Restart the agent service to apply updates
-            subprocess.run(['systemctl', 'restart', 'css-agent'])
+            # Restart the agent service in background AFTER response is sent
+            # Using Popen so it doesn't block the response
+            subprocess.Popen(
+                ['bash', '-c', 'sleep 2 && systemctl restart css-agent'],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
 
         return jsonify({
             'success': success,
@@ -586,6 +590,15 @@ def reboot_settings():
             return jsonify({'success': False, 'error': 'enabled parameter required'}), 400
 
         try:
+            # Re-copy timer/service files from repo in case they were updated
+            import shutil
+            agent_dir = os.path.dirname(os.path.abspath(__file__))
+            for f in ['css-daily-reboot.timer', 'css-daily-reboot.service']:
+                src = os.path.join(agent_dir, 'systemd', f)
+                if os.path.exists(src):
+                    shutil.copy2(src, f'/etc/systemd/system/{f}')
+            subprocess.run(['systemctl', 'daemon-reload'], check=True)
+
             if data['enabled']:
                 subprocess.run(['systemctl', 'enable', 'css-daily-reboot.timer'], check=True)
                 subprocess.run(['systemctl', 'start', 'css-daily-reboot.timer'], check=True)
