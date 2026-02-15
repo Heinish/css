@@ -1,8 +1,8 @@
 {
-  "name": "dashboard",
-  "productName": "dashboard",
+  "name": "css-dashboard",
+  "productName": "CSS Dashboard",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "Cheap Signage Solutions - Raspberry Pi signage management dashboard",
   "main": ".webpack/main",
   "private": true,
   "scripts": {

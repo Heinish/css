@@ -9,7 +9,11 @@ module.exports = {
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
-      config: {},
+      config: {
+        name: 'CSSdashboard',
+        setupExe: 'CSS-Dashboard-Setup.exe',
+        description: 'Cheap Signage Solutions - Raspberry Pi signage management dashboard',
+      },
     },
     {
       name: '@electron-forge/maker-zip',
