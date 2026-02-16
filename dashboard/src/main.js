@@ -15,17 +15,15 @@ let db;
 const createWindow = () => {
   // Create the browser window.
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    width: 1600,
+    height: 1000,
     minWidth: 1000,
     minHeight: 600,
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false,
-      allowRunningInsecureContent: true,
-      experimentalFeatures: true
+      webSecurity: false
     },
     title: 'CSS Dashboard - Raspberry Pi Signage Management'
   });
@@ -37,6 +35,11 @@ const createWindow = () => {
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
   }
+
+  // Fix Windows focus issue: ensure webContents gets keyboard focus when window is focused
+  mainWindow.on('focus', () => {
+    mainWindow.webContents.focus();
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
