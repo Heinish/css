@@ -20,6 +20,8 @@ app = Flask(__name__, static_folder='static')
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20 MB upload limit
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads')
+PLAYLIST_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads', 'playlist')
+MAX_PLAYLIST_IMAGES = 20
 ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'}
 CONFIG_FILE = '/etc/css/config.json'
 FULLPAGEOS_CONFIG = '/boot/firmware/fullpageos.txt'
@@ -51,6 +53,25 @@ def save_config(config):
     """Save configuration to file"""
     with open(CONFIG_FILE, 'w') as f:
         json.dump(config, f, indent=2)
+
+def get_playlist_config():
+    """Return playlist section of config with defaults"""
+    config = load_config()
+    return {
+        'images': config.get('playlist_images', []),
+        'display_time': config.get('playlist_display_time', 5),
+        'fade_time': config.get('playlist_fade_time', 1),
+        'fallback_enabled': config.get('playlist_fallback_enabled', False)
+    }
+
+def save_playlist_config(playlist):
+    """Merge playlist settings back into main config"""
+    config = load_config()
+    config['playlist_images'] = playlist.get('images', [])
+    config['playlist_display_time'] = playlist.get('display_time', 5)
+    config['playlist_fade_time'] = playlist.get('fade_time', 1)
+    config['playlist_fallback_enabled'] = playlist.get('fallback_enabled', False)
+    save_config(config)
 
 def get_cpu_temp():
     """Get CPU temperature in Celsius"""
@@ -728,6 +749,65 @@ def delete_image():
             return jsonify({'success': True, 'message': 'No image to delete'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/slideshow', methods=['GET'])
+def slideshow():
+    """Serve a self-contained image playlist slideshow page"""
+    playlist = get_playlist_config()
+    images = playlist['images']
+    display_time = playlist['display_time']
+    fade_time = playlist['fade_time']
+
+    if not images:
+        return '''<!DOCTYPE html><html><body style="background:#000;color:#fff;display:flex;
+align-items:center;justify-content:center;height:100vh;font-family:sans-serif;font-size:24px;">
+<p>No images in playlist</p></body></html>''', 200, {'Content-Type': 'text/html'}
+
+    slides_html = '\n'.join(
+        f'<div class="slide" id="slide{i}"><img src="/static/uploads/playlist/{img}" alt=""></div>'
+        for i, img in enumerate(images)
+    )
+    display_ms = int(display_time * 1000)
+    interval_ms = int((display_time + fade_time) * 1000)
+
+    return f'''<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="google" content="notranslate">
+<style>
+* {{ margin: 0; padding: 0; box-sizing: border-box; }}
+body {{ background: #000; width: 100vw; height: 100vh; overflow: hidden; position: relative; }}
+.slide {{
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    transition: opacity {fade_time}s ease-in-out;
+}}
+.slide.active {{ opacity: 1; }}
+img {{ max-width: 100vw; max-height: 100vh; object-fit: contain; }}
+</style>
+</head>
+<body>
+{slides_html}
+<script>
+var slides = document.querySelectorAll('.slide');
+var current = 0;
+var total = slides.length;
+function showSlide(n) {{
+    slides.forEach(function(s) {{ s.classList.remove('active'); }});
+    slides[n].classList.add('active');
+}}
+function next() {{
+    current = (current + 1) % total;
+    showSlide(current);
+}}
+showSlide(0);
+setInterval(next, {interval_ms});
+</script>
+</body>
+</html>''', 200, {{'Content-Type': 'text/html'}}
+
 
 @app.route('/api/health', methods=['GET'])
 def health():
