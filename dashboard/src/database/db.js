@@ -9,7 +9,7 @@ class CSSDatabase {
   constructor(dbPath) {
     // Store as JSON file instead of SQLite
     this.dbPath = dbPath.replace('.db', '.json');
-    this.data = { pis: [], rooms: [], urls: [], nextPiId: 1, nextRoomId: 1, nextUrlId: 1 };
+    this.data = { pis: [], rooms: [], urls: [], nextPiId: 1, nextRoomId: 1, nextUrlId: 1, removedPiRooms: {} };
     this.load();
   }
 
@@ -51,14 +51,17 @@ class CSSDatabase {
   }
 
   addPi(pi) {
+    if (!this.data.removedPiRooms) this.data.removedPiRooms = {};
+    const restoredRoomId = this.data.removedPiRooms[pi.ip_address] || null;
     const newPi = {
       id: this.data.nextPiId++,
       name: pi.name,
       ip_address: pi.ip_address,
-      room_id: pi.room_id || null,
+      room_id: restoredRoomId || pi.room_id || null,
       last_seen: null,
       created_at: new Date().toISOString()
     };
+    delete this.data.removedPiRooms[pi.ip_address];
     this.data.pis.push(newPi);
     this.save();
     return newPi;
@@ -80,6 +83,12 @@ class CSSDatabase {
   removePi(id) {
     const index = this.data.pis.findIndex(p => p.id === id);
     if (index === -1) return false;
+
+    const pi = this.data.pis[index];
+    if (pi.room_id) {
+      if (!this.data.removedPiRooms) this.data.removedPiRooms = {};
+      this.data.removedPiRooms[pi.ip_address] = pi.room_id;
+    }
 
     this.data.pis.splice(index, 1);
     this.save();
