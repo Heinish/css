@@ -116,6 +116,18 @@ function App() {
   async function handleAddPi(piData) {
     try {
       const newPi = await window.api.addPi(piData);
+
+      // Auto-assign room if Pi's config already has one
+      const status = await ApiService.getPiStatus(piData.ip_address);
+      if (status.success && status.data.room) {
+        const matchedRoom = rooms.find(r => r.name === status.data.room);
+        if (matchedRoom) {
+          await window.api.assignPiToRoom(newPi.id, matchedRoom.id);
+          newPi.room_id = matchedRoom.id;
+          newPi.room_name = matchedRoom.name;
+        }
+      }
+
       setPis([...pis, newPi]);
       setShowAddDialog(false);
       setModalOpen(false);
