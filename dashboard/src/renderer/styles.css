@@ -307,6 +307,26 @@
     opacity: 0.85;
 }
 
+button.pi-version-btn {
+    cursor: pointer;
+    font-family: inherit;
+    transition: filter 0.15s, transform 0.1s;
+}
+
+button.pi-version-btn:hover:not(:disabled) {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+}
+
+button.pi-version-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+button.pi-version-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
 /* Pi Stats */
 .pi-stats {
     display: grid;

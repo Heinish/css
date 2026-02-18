@@ -333,6 +333,7 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
   const [selectedUrlId, setSelectedUrlId] = useState('custom');
   const [restarting, setRestarting] = useState(false);
   const [rebooting, setRebooting] = useState(false);
+  const [updatingAgent, setUpdatingAgent] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -442,6 +443,21 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
     setRebooting(false);
   }
 
+  async function handleUpdateAgent(updateType) {
+    const typeLabels = { major: 'Major update', minor: 'New features', patch: 'Bug fix', 'no-version': 'Update' };
+    const label = typeLabels[updateType] || 'Update';
+    if (!confirm(`${label}: v${pi.version || '?'} → v${latestVersion}\n\nUpdate ${pi.name} now?`)) return;
+    setUpdatingAgent(true);
+    const result = await window.api.updatePiNow(pi.ip_address);
+    setUpdatingAgent(false);
+    if (result.success) {
+      alert(`✅ ${pi.name} updated! The agent is restarting.`);
+      setTimeout(onUpdate, 4000);
+    } else {
+      alert('❌ Update failed: ' + result.error);
+    }
+  }
+
   return h('div', null,
     h('div', { className: `pi-card ${pi.online ? 'online' : 'offline'}` },
       // Status
@@ -459,28 +475,31 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
           const updateType = getUpdateType(pi.version, latestVersion);
           const versionLabel = pi.version || 'unknown';
           if (updateType === null) {
-            // Up to date
             return h('div', { className: 'pi-version up-to-date' }, `v${versionLabel} ✓`);
           }
           if (updateType === 'no-check') {
-            // Couldn't fetch latest version from GitHub — just show version, no badge
             return h('div', { className: 'pi-version up-to-date' }, `v${versionLabel}`);
           }
-          if (updateType === 'no-version') {
-            // Pi hasn't been updated to versioned agent yet
-            return h('div', { className: 'pi-version update-minor' },
-              h('span', { className: 'version-type-badge' }, 'Update recommended')
-            );
-          }
+          // Clickable update button for no-version / patch / minor / major
           const labels = {
+            'no-version': { text: 'Update recommended', className: 'pi-version update-minor' },
             major: { text: 'Major update', className: 'pi-version update-major' },
             minor: { text: 'New features', className: 'pi-version update-minor' },
             patch: { text: 'Bug fix', className: 'pi-version update-patch' },
           };
           const { text, className } = labels[updateType];
-          return h('div', { className },
-            h('span', null, `v${versionLabel} → v${latestVersion}`),
-            h('span', { className: 'version-type-badge' }, text)
+          return h('button', {
+            className: `${className} pi-version-btn`,
+            onClick: () => handleUpdateAgent(updateType),
+            disabled: updatingAgent || !pi.online,
+            title: 'Click to update this Pi'
+          },
+            updatingAgent
+              ? h('span', null, 'Updating...')
+              : h('span', null,
+                  updateType !== 'no-version' && h('span', null, `v${versionLabel} → v${latestVersion}  `),
+                  h('span', { className: 'version-type-badge' }, text)
+                )
           );
         })()
       ),
