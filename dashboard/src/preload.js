@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // Playlist operations
   getPlaylist: (ip) => ipcRenderer.invoke('pi:getPlaylist', ip),
+  getPlaylistThumbnail: (ip, filename) => ipcRenderer.invoke('pi:getPlaylistThumbnail', ip, filename),
   uploadPlaylistImage: (ip, imageBase64, filename) => ipcRenderer.invoke('pi:uploadPlaylistImage', ip, imageBase64, filename),
   deletePlaylistImage: (ip, index) => ipcRenderer.invoke('pi:deletePlaylistImage', ip, index),
   clearPlaylist: (ip) => ipcRenderer.invoke('pi:clearPlaylist', ip),

@@ -782,6 +782,7 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
   // Playlist state
   const [playlistLoaded, setPlaylistLoaded] = useState(false);
   const [playlistImages, setPlaylistImages] = useState([]);
+  const [playlistThumbs, setPlaylistThumbs] = useState({});
   const [playlistDisplayTime, setPlaylistDisplayTime] = useState(5);
   const [playlistFadeTime, setPlaylistFadeTime] = useState(1);
   const [playlistFallback, setPlaylistFallback] = useState(false);
@@ -816,10 +817,21 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
     const result = await window.api.getPlaylist(pi.ip_address);
     if (result.success) {
       const pl = result.data;
-      setPlaylistImages(pl.images || []);
+      const images = pl.images || [];
+      setPlaylistImages(images);
       setPlaylistDisplayTime(pl.display_time || 5);
       setPlaylistFadeTime(pl.fade_time || 1);
       setPlaylistFallback(pl.fallback_enabled || false);
+
+      // Load thumbnails via IPC (direct HTTP img src doesn't work in Electron renderer)
+      const thumbEntries = await Promise.all(
+        images.map(async (filename) => {
+          const r = await window.api.getPlaylistThumbnail(pi.ip_address, filename);
+          const dataUrl = r.success ? `data:${r.mimeType};base64,${r.data}` : null;
+          return [filename, dataUrl];
+        })
+      );
+      setPlaylistThumbs(Object.fromEntries(thumbEntries));
     }
     setPlaylistLoaded(true);
   }
@@ -1277,7 +1289,7 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
                         h('div', { key: i, className: 'playlist-item', title: filename },
                           h('img', {
                             className: 'playlist-thumb',
-                            src: `http://${pi.ip_address}:5000/static/uploads/playlist/${filename}`,
+                            src: playlistThumbs[filename] || '',
                             alt: filename
                           }),
                           h('div', { className: 'playlist-index' }, i + 1),

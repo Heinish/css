@@ -209,6 +209,19 @@ async function getPlaylist(ip) {
   }
 }
 
+async function getPlaylistThumbnail(ip, filename) {
+  try {
+    const response = await axios.get(
+      `http://${ip}:5000/static/uploads/playlist/${filename}`,
+      { timeout: 8000, responseType: 'arraybuffer' }
+    );
+    const mimeType = response.headers['content-type'] || 'image/jpeg';
+    return { success: true, data: Buffer.from(response.data).toString('base64'), mimeType };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
 async function uploadPlaylistImage(ip, imageBuffer, filename) {
   try {
     const form = new FormData();
@@ -363,6 +376,7 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('pi:getPlaylist', async (event, ip) => getPlaylist(ip));
+  ipcMain.handle('pi:getPlaylistThumbnail', async (event, ip, filename) => getPlaylistThumbnail(ip, filename));
   ipcMain.handle('pi:uploadPlaylistImage', async (event, ip, imageBase64, filename) => {
     const buffer = Buffer.from(imageBase64, 'base64');
     return uploadPlaylistImage(ip, buffer, filename);
