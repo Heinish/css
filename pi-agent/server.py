@@ -374,12 +374,11 @@ def update():
         output = result.stdout + result.stderr
 
         if success:
-            # Restart the agent service in background AFTER response is sent
-            # Using Popen so it doesn't block the response
-            subprocess.Popen(
-                ['bash', '-c', 'sleep 2 && sudo systemctl restart css-agent'],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-            )
+            # Kill this process after sending the response.
+            # systemd's Restart=always will bring it back up with the new code.
+            # No sudo or permission changes needed.
+            import signal, threading
+            threading.Timer(2, lambda: os.kill(os.getpid(), signal.SIGTERM)).start()
 
         return jsonify({
             'success': success,
