@@ -595,6 +595,52 @@
   to { opacity: 1; }
 }
 
+/* Picture Playlist */
+.playlist-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.playlist-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--gray-100);
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.playlist-item:hover {
+  background: var(--gray-200);
+}
+
+.playlist-index {
+  min-width: 24px;
+  height: 24px;
+  background: var(--primary-color);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.playlist-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .pi-grid {

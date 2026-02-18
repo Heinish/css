@@ -779,6 +779,15 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
   const [dns, setDns] = useState('8.8.8.8');
   const [applyingNetwork, setApplyingNetwork] = useState(false);
 
+  // Playlist state
+  const [playlistLoaded, setPlaylistLoaded] = useState(false);
+  const [playlistImages, setPlaylistImages] = useState([]);
+  const [playlistDisplayTime, setPlaylistDisplayTime] = useState(5);
+  const [playlistFadeTime, setPlaylistFadeTime] = useState(1);
+  const [playlistFallback, setPlaylistFallback] = useState(false);
+  const [uploadingPlaylist, setUploadingPlaylist] = useState(false);
+  const [savingPlaylist, setSavingPlaylist] = useState(false);
+
   // Load system settings when System tab is opened
   async function loadSystemSettings() {
     setLoadingSettings(true);
@@ -801,6 +810,77 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
       console.error('Failed to load system settings:', error);
     }
     setLoadingSettings(false);
+  }
+
+  async function loadPlaylist() {
+    const result = await window.api.getPlaylist(pi.ip_address);
+    if (result.success) {
+      const pl = result.data;
+      setPlaylistImages(pl.images || []);
+      setPlaylistDisplayTime(pl.display_time || 5);
+      setPlaylistFadeTime(pl.fade_time || 1);
+      setPlaylistFallback(pl.fallback_enabled || false);
+    }
+    setPlaylistLoaded(true);
+  }
+
+  async function handleUploadPlaylistImages() {
+    const fileResult = await window.api.openMultipleImagesDialog();
+    if (fileResult.canceled) return;
+
+    const remaining = 20 - playlistImages.length;
+    const toUpload = fileResult.files.slice(0, remaining);
+
+    if (toUpload.length < fileResult.files.length) {
+      alert(`Playlist is limited to 20 images. Only uploading ${toUpload.length} of ${fileResult.files.length} selected.`);
+    }
+
+    setUploadingPlaylist(true);
+    let uploaded = 0;
+    for (const file of toUpload) {
+      if (file.size > 20 * 1024 * 1024) { alert(`${file.filename} is too large (max 20 MB)`); continue; }
+      const result = await window.api.uploadPlaylistImage(pi.ip_address, file.imageBase64, file.filename);
+      if (result.success) uploaded++;
+      else alert(`Failed to upload ${file.filename}: ${result.error}`);
+    }
+    setUploadingPlaylist(false);
+    if (uploaded > 0) {
+      alert(`Uploaded ${uploaded} image${uploaded !== 1 ? 's' : ''} to playlist!`);
+      loadPlaylist();
+    }
+  }
+
+  async function handleDeletePlaylistImage(index) {
+    if (!confirm('Remove this image from the playlist?')) return;
+    const result = await window.api.deletePlaylistImage(pi.ip_address, index);
+    if (result.success) loadPlaylist();
+    else alert('Failed to delete image: ' + result.error);
+  }
+
+  async function handleClearPlaylist() {
+    if (!confirm('Clear all images from the playlist?')) return;
+    const result = await window.api.clearPlaylist(pi.ip_address);
+    if (result.success) { setPlaylistImages([]); alert('Playlist cleared.'); }
+    else alert('Failed to clear playlist: ' + result.error);
+  }
+
+  async function handleSavePlaylistSettings() {
+    setSavingPlaylist(true);
+    const result = await window.api.setPlaylistSettings(pi.ip_address, {
+      display_time: playlistDisplayTime,
+      fade_time: playlistFadeTime,
+      fallback_enabled: playlistFallback
+    });
+    setSavingPlaylist(false);
+    if (result.success) alert('Playlist settings saved!');
+    else alert('Failed to save settings: ' + result.error);
+  }
+
+  async function handleActivatePlaylist() {
+    if (playlistImages.length === 0) { alert('Add at least one image first!'); return; }
+    const result = await window.api.activatePlaylist(pi.ip_address);
+    if (result.success) alert('Slideshow is now displaying on the Pi!');
+    else alert('Failed to activate playlist: ' + result.error);
   }
 
   async function handlePreview() {
@@ -958,7 +1038,14 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
               setActiveTab('system');
               if (autoUpdateEnabled === null) loadSystemSettings();
             }
-          }, '⚙️ System')
+          }, '⚙️ System'),
+          h('button', {
+            className: activeTab === 'playlist' ? 'tab active' : 'tab',
+            onClick: () => {
+              setActiveTab('playlist');
+              if (!playlistLoaded) loadPlaylist();
+            }
+          }, '🖼️ Playlist')
         ),
 
         // General tab
@@ -1158,6 +1245,102 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
               h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Close')
             )
           )
+        ),
+
+        // Playlist tab
+        activeTab === 'playlist' && h('div', { className: 'tab-content' },
+          !playlistLoaded
+            ? h('div', null, '⏳ Loading playlist...')
+            : h('div', null,
+
+              // Image list
+              h('div', { className: 'form-group' },
+                h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' } },
+                  h('h3', null, `🖼️ Images (${playlistImages.length}/20)`),
+                  h('div', { style: { display: 'flex', gap: '8px' } },
+                    h('button', {
+                      className: 'btn btn-primary btn-sm',
+                      onClick: handleUploadPlaylistImages,
+                      disabled: !pi.online || uploadingPlaylist || playlistImages.length >= 20
+                    }, uploadingPlaylist ? '⏳ Uploading...' : '➕ Add Images'),
+                    playlistImages.length > 0 && h('button', {
+                      className: 'btn btn-danger btn-sm',
+                      onClick: handleClearPlaylist,
+                      disabled: !pi.online
+                    }, '🗑️ Clear All')
+                  )
+                ),
+                playlistImages.length === 0
+                  ? h('div', { className: 'alert alert-info' }, 'No images yet. Click "Add Images" to upload up to 20 photos.')
+                  : h('div', { className: 'playlist-grid' },
+                      playlistImages.map((filename, i) =>
+                        h('div', { key: i, className: 'playlist-item' },
+                          h('div', { className: 'playlist-index' }, i + 1),
+                          h('div', { className: 'playlist-name', title: filename }, filename),
+                          h('button', {
+                            className: 'btn btn-danger btn-sm',
+                            onClick: () => handleDeletePlaylistImage(i),
+                            disabled: !pi.online
+                          }, '✕')
+                        )
+                      )
+                    )
+              ),
+
+              // Timing settings
+              h('div', { className: 'form-group' },
+                h('h3', null, '⚙️ Slideshow Settings'),
+                h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '12px' } },
+                  h('div', null,
+                    h('label', null, '⏱️ Display Time (seconds):'),
+                    h('input', {
+                      type: 'number', min: '1', max: '300',
+                      value: playlistDisplayTime,
+                      onChange: (e) => setPlaylistDisplayTime(parseInt(e.target.value) || 5)
+                    })
+                  ),
+                  h('div', null,
+                    h('label', null, '🌅 Fade Time (seconds):'),
+                    h('input', {
+                      type: 'number', min: '0', max: '10', step: '0.5',
+                      value: playlistFadeTime,
+                      onChange: (e) => setPlaylistFadeTime(parseFloat(e.target.value) || 1)
+                    })
+                  )
+                )
+              ),
+
+              // Fallback toggle
+              h('div', { className: 'form-group' },
+                h('h3', null, '📡 Network Fallback'),
+                h('p', { style: { color: 'var(--text-tertiary)', fontSize: '13px', marginBottom: '10px' } },
+                  'Show slideshow instead of the offline page when the network is down.'
+                ),
+                h('label', { style: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' } },
+                  h('input', {
+                    type: 'checkbox',
+                    checked: playlistFallback,
+                    onChange: (e) => setPlaylistFallback(e.target.checked),
+                    style: { width: '18px', height: '18px' }
+                  }),
+                  h('span', null, 'Use playlist as network fallback')
+                )
+              ),
+
+              h('div', { className: 'form-actions' },
+                h('button', {
+                  className: 'btn btn-secondary',
+                  onClick: handleActivatePlaylist,
+                  disabled: !pi.online || playlistImages.length === 0
+                }, '▶️ Show Slideshow Now'),
+                h('button', {
+                  className: 'btn btn-primary',
+                  onClick: handleSavePlaylistSettings,
+                  disabled: !pi.online || savingPlaylist
+                }, savingPlaylist ? '⏳ Saving...' : '💾 Save Settings'),
+                h('button', { className: 'btn btn-secondary', onClick: onClose }, 'Close')
+              )
+            )
         )
       )
     ),
