@@ -234,15 +234,15 @@ function App() {
       h('div', { className: 'toolbar' },
         h('div', { className: 'toolbar-left' },
           h('button', { className: 'btn btn-primary', onClick: () => { setShowAddDialog(true); setModalOpen(true); } }, '➕ Add Pi'),
-          h('button', { className: 'btn btn-secondary', onClick: () => { setShowRoomManager(true); setModalOpen(true); } }, '🏢 Manage Rooms'),
-          h('button', { className: 'btn btn-secondary', onClick: () => { setShowUrlManager(true); setModalOpen(true); } }, '🔗 Manage URLs'),
+          h('button', { className: 'btn', onClick: () => { setShowRoomManager(true); setModalOpen(true); } }, '🏢 Manage Rooms'),
+          h('button', { className: 'btn', onClick: () => { setShowUrlManager(true); setModalOpen(true); } }, '🔗 Manage URLs'),
           h('button', {
             className: 'btn btn-warning',
             onClick: handleRestartAllBrowsers,
             disabled: restartingAll || pis.filter(p => p.online).length === 0
           }, restartingAll ? '⏳ Restarting All...' : '🔄 Restart All Browsers'),
           h('button', {
-            className: 'btn btn-info',
+            className: 'btn',
             onClick: () => refreshPiStatus(true),
             disabled: refreshing
           }, refreshing ? '⏳ Refreshing...' : '🔄 Refresh'),
@@ -552,17 +552,17 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
           // Actions
           h('div', { className: 'pi-actions' },
             h('button', {
-              className: 'btn btn-sm btn-secondary',
+              className: 'btn btn-sm',
               onClick: handleChangeUrl,
               disabled: !pi.online || changing
             }, changing ? '⏳ Changing...' : '🔗 Change URL'),
             h('button', {
-              className: 'btn btn-sm btn-primary',
+              className: 'btn btn-sm',
               onClick: handleUploadImage,
               disabled: !pi.online || uploading
             }, uploading ? '⏳ Uploading...' : '🖼️ Upload Image'),
             h('button', {
-              className: 'btn btn-sm btn-info',
+              className: 'btn btn-sm',
               onClick: handleRestartBrowser,
               disabled: !pi.online || restarting
             }, restarting ? '⏳ Restarting...' : '🔄 Restart'),
@@ -572,12 +572,12 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
               disabled: !pi.online || rebooting
             }, rebooting ? '⏳ Rebooting...' : '⚡ Reboot'),
             h('button', {
-              className: 'btn btn-sm btn-info',
+              className: 'btn btn-sm',
               onClick: handlePreview,
               disabled: !pi.online || loadingPreview
             }, loadingPreview ? '⏳ Loading...' : '📸 Preview'),
             h('button', {
-              className: 'btn btn-sm btn-secondary',
+              className: 'btn btn-sm',
               onClick: () => { setShowSettings(true); setModalOpen(true); }
             }, '⚙️ Settings'),
             h('button', {

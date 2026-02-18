@@ -434,8 +434,7 @@ button.pi-version-btn:disabled {
 }
 
 .pi-actions .btn {
-    flex: 1;
-    min-width: 100px;
+    flex: 0 0 auto;
 }
 
 /* ===== BUTTONS ===== */
