@@ -377,7 +377,7 @@ def update():
             # Restart the agent service in background AFTER response is sent
             # Using Popen so it doesn't block the response
             subprocess.Popen(
-                ['bash', '-c', 'sleep 2 && systemctl restart css-agent'],
+                ['bash', '-c', 'sleep 2 && sudo systemctl restart css-agent'],
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
             )
 

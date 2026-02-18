@@ -83,6 +83,11 @@ cp /opt/css-agent/systemd/css-daily-reboot.service /etc/systemd/system/
 
 systemctl daemon-reload
 
+# Allow the Pi user to restart the css-agent service without a password
+# This is required for the dashboard's manual update button to work
+echo "${ACTUAL_USER} ALL=(ALL) NOPASSWD: /bin/systemctl restart css-agent" > /etc/sudoers.d/css-agent
+chmod 440 /etc/sudoers.d/css-agent
+
 # Set proper permissions on config files
 chmod 666 /etc/css/config.json
 chmod 666 /boot/firmware/fullpageos.txt
