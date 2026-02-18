@@ -1070,16 +1070,22 @@ def start_network_monitor():
                 online = False
 
             if not online and not offline_shown:
-                # Network just went down - switch to offline page
-                print("Network down - showing offline page")
+                # Network just went down - check if playlist fallback is enabled
                 try:
+                    pl = get_playlist_config()
+                    if pl.get('fallback_enabled') and pl.get('images'):
+                        fallback_url = 'http://localhost:5000/slideshow'
+                        print("Network down - showing playlist slideshow")
+                    else:
+                        fallback_url = 'http://localhost:5000/offline'
+                        print("Network down - showing offline page")
                     with open(FULLPAGEOS_CONFIG, 'w') as f:
-                        f.write('http://localhost:5000/offline\n')
+                        f.write(fallback_url + '\n')
                     os.sync()
                     restart_chromium()
                     offline_shown = True
                 except Exception as e:
-                    print(f"Failed to show offline page: {e}")
+                    print(f"Failed to show fallback page: {e}")
 
             elif online and offline_shown:
                 # Network restored - switch back to configured URL
