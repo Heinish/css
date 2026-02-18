@@ -904,7 +904,7 @@ showSlide(0);
 setInterval(next, {interval_ms});
 </script>
 </body>
-</html>''', 200, {{'Content-Type': 'text/html'}}
+</html>''', 200, {'Content-Type': 'text/html'}
 
 
 @app.route('/api/health', methods=['GET'])

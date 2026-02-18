@@ -1274,13 +1274,18 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
                   ? h('div', { className: 'alert alert-info' }, 'No images yet. Click "Add Images" to upload up to 20 photos.')
                   : h('div', { className: 'playlist-grid' },
                       playlistImages.map((filename, i) =>
-                        h('div', { key: i, className: 'playlist-item' },
+                        h('div', { key: i, className: 'playlist-item', title: filename },
+                          h('img', {
+                            className: 'playlist-thumb',
+                            src: `http://${pi.ip_address}:5000/static/uploads/playlist/${filename}`,
+                            alt: filename
+                          }),
                           h('div', { className: 'playlist-index' }, i + 1),
-                          h('div', { className: 'playlist-name', title: filename }, filename),
                           h('button', {
-                            className: 'btn btn-danger btn-sm',
+                            className: 'btn btn-danger btn-sm playlist-delete',
                             onClick: () => handleDeletePlaylistImage(i),
-                            disabled: !pi.online
+                            disabled: !pi.online,
+                            title: `Remove ${filename}`
                           }, '✕')
                         )
                       )
