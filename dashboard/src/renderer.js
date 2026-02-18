@@ -1053,7 +1053,8 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
 
       // Update name in both local database AND Pi's config
       const dbUpdates = { name: piName };
-      const piConfigUpdates = { name: piName };
+      const selectedRoom = rooms.find(r => r.id === parseInt(piRoom));
+      const piConfigUpdates = { name: piName, room: selectedRoom ? selectedRoom.name : '' };
 
       // Save to Pi's config first
       const result = await window.api.updatePiConfig(pi.ip_address, piConfigUpdates);
