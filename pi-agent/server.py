@@ -750,6 +750,104 @@ def delete_image():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/display/playlist', methods=['GET', 'POST', 'DELETE'])
+def playlist_api():
+    """GET: return playlist config. POST: update settings. DELETE: clear all images."""
+    if request.method == 'GET':
+        return jsonify(get_playlist_config())
+
+    if request.method == 'DELETE':
+        playlist = get_playlist_config()
+        for filename in playlist['images']:
+            filepath = os.path.join(PLAYLIST_FOLDER, filename)
+            try:
+                if os.path.exists(filepath):
+                    os.unlink(filepath)
+            except Exception as e:
+                print(f'Warning: could not delete {filepath}: {e}')
+        playlist['images'] = []
+        save_playlist_config(playlist)
+        return jsonify({'success': True})
+
+    # POST — update settings
+    data = request.json or {}
+    playlist = get_playlist_config()
+    if 'display_time' in data:
+        playlist['display_time'] = max(1, int(data['display_time']))
+    if 'fade_time' in data:
+        playlist['fade_time'] = max(0, float(data['fade_time']))
+    if 'fallback_enabled' in data:
+        playlist['fallback_enabled'] = bool(data['fallback_enabled'])
+    save_playlist_config(playlist)
+    return jsonify({'success': True, 'playlist': playlist})
+
+
+@app.route('/api/display/playlist/images', methods=['POST'])
+def upload_playlist_image():
+    """Upload one image to the playlist (max 20)"""
+    if 'image' not in request.files:
+        return jsonify({'success': False, 'error': 'No image file provided'}), 400
+
+    file = request.files['image']
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        return jsonify({'success': False, 'error': 'Invalid file type'}), 400
+
+    playlist = get_playlist_config()
+    if len(playlist['images']) >= MAX_PLAYLIST_IMAGES:
+        return jsonify({'success': False, 'error': f'Maximum {MAX_PLAYLIST_IMAGES} images reached'}), 400
+
+    os.makedirs(PLAYLIST_FOLDER, exist_ok=True)
+
+    index = len(playlist['images'])
+    filename = f'playlist-{index}.{ext}'
+    filepath = os.path.join(PLAYLIST_FOLDER, filename)
+    file.save(filepath)
+
+    playlist['images'].append(filename)
+    save_playlist_config(playlist)
+
+    return jsonify({'success': True, 'index': index, 'filename': filename, 'total': len(playlist['images'])})
+
+
+@app.route('/api/display/playlist/images/<int:index>', methods=['DELETE'])
+def delete_playlist_image(index):
+    """Remove one image from the playlist by index"""
+    playlist = get_playlist_config()
+    if index < 0 or index >= len(playlist['images']):
+        return jsonify({'success': False, 'error': 'Invalid index'}), 400
+
+    filename = playlist['images'][index]
+    filepath = os.path.join(PLAYLIST_FOLDER, filename)
+    try:
+        if os.path.exists(filepath):
+            os.unlink(filepath)
+    except Exception as e:
+        print(f'Warning: could not delete file {filepath}: {e}')
+
+    playlist['images'].pop(index)
+    save_playlist_config(playlist)
+    return jsonify({'success': True, 'total': len(playlist['images'])})
+
+
+@app.route('/api/display/playlist/activate', methods=['POST'])
+def activate_playlist():
+    """Switch display to the slideshow page"""
+    playlist = get_playlist_config()
+    if not playlist['images']:
+        return jsonify({'success': False, 'error': 'No images in playlist'}), 400
+
+    playlist_url = 'http://localhost:5000/slideshow'
+    config = load_config()
+    config['display_url'] = playlist_url
+    save_config(config)
+    try:
+        update_display_url(playlist_url)
+        return jsonify({'success': True, 'message': 'Slideshow activated'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/slideshow', methods=['GET'])
 def slideshow():
     """Serve a self-contained image playlist slideshow page"""
