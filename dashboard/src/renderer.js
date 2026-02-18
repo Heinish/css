@@ -246,10 +246,10 @@ function App() {
             onClick: () => refreshPiStatus(true),
             disabled: refreshing
           }, refreshing ? '⏳ Refreshing...' : '🔄 Refresh'),
-          h('button', {
-            className: autoRefreshEnabled ? 'btn btn-secondary' : 'btn btn-warning',
-            onClick: () => setAutoRefreshEnabled(!autoRefreshEnabled)
-          }, autoRefreshEnabled ? '⏸️ Auto-Refresh On' : '▶️ Auto-Refresh Off')
+          h('div', { className: 'toggle-row', style: { padding: '0', margin: '0 4px' } },
+            h(ToggleSwitch, { checked: autoRefreshEnabled, onChange: setAutoRefreshEnabled }),
+            h('span', { style: { fontSize: '13px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' } }, 'Auto-Refresh')
+          )
         ),
         h('div', { className: 'toolbar-right' },
           h('label', null, '🏢 Filter:'),
@@ -326,7 +326,22 @@ function getUpdateType(current, latest) {
   return 'patch';
 }
 
+// ===== Toggle Switch Component =====
+function ToggleSwitch({ checked, onChange, disabled }) {
+  return h('div', {
+    className: `toggle-switch ${checked ? 'on' : 'off'}${disabled ? ' disabled' : ''}`,
+    onClick: !disabled ? () => onChange(!checked) : undefined,
+    role: 'switch',
+    'aria-checked': checked
+  },
+    h('span', { className: 'toggle-label-on' }, 'ON'),
+    h('span', { className: 'toggle-label-off' }, 'OFF'),
+    h('span', { className: 'toggle-knob' })
+  );
+}
+
 function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOpen }) {
+  const [expanded, setExpanded] = useState(false);
   const [changing, setChanging] = useState(false);
   const [showUrlDialog, setShowUrlDialog] = useState(false);
   const [newUrl, setNewUrl] = useState('');
@@ -459,18 +474,18 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
   }
 
   return h('div', null,
-    h('div', { className: `pi-card ${pi.online ? 'online' : 'offline'}` },
-      // Status
-      h('div', { className: 'pi-status' },
-        h('div', { className: `status-dot ${pi.online ? 'online' : 'offline'}` }),
-        h('span', null, pi.online ? '✅ Online' : '❌ Offline')
-      ),
+    h('div', { className: `pi-card ${expanded ? 'expanded' : ''} ${pi.online ? 'online' : 'offline'}` },
 
-      // Info
-      h('div', { className: 'pi-info' },
-        h('h3', null, pi.name),
-        h('div', { className: 'pi-ip' }, pi.ip_address),
-        pi.room_name && h('div', { className: 'pi-room' }, '📍 ' + pi.room_name),
+      // HEADER — always visible, click to expand/collapse
+      h('div', {
+        className: 'pi-card-header',
+        onClick: () => setExpanded(!expanded)
+      },
+        h('div', { className: `status-dot ${pi.online ? 'online' : 'offline'}` }),
+        h('div', { className: 'pi-card-header-info' },
+          h('h3', null, pi.name),
+          h('div', { className: 'pi-ip' }, pi.ip_address)
+        ),
         pi.online && (() => {
           const updateType = getUpdateType(pi.version, latestVersion);
           const versionLabel = pi.version || 'unknown';
@@ -480,7 +495,6 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
           if (updateType === 'no-check') {
             return h('div', { className: 'pi-version up-to-date' }, `v${versionLabel}`);
           }
-          // Clickable update button for no-version / patch / minor / major
           const labels = {
             'no-version': { text: 'Update recommended', className: 'pi-version update-minor' },
             major: { text: 'Major update', className: 'pi-version update-major' },
@@ -490,7 +504,7 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
           const { text, className } = labels[updateType];
           return h('button', {
             className: `${className} pi-version-btn`,
-            onClick: () => handleUpdateAgent(updateType),
+            onClick: (e) => { e.stopPropagation(); handleUpdateAgent(updateType); },
             disabled: updatingAgent || !pi.online,
             title: 'Click to update this Pi'
           },
@@ -504,67 +518,76 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
         })()
       ),
 
-      // Stats
-      pi.online && h('div', { className: 'pi-stats' },
-        h('div', { className: 'stat' },
-          h('span', { className: 'stat-label' }, '💻 CPU:'),
-          h('span', { className: 'stat-value' }, `${pi.cpu_percent || 0}%`)
-        ),
-        h('div', { className: 'stat' },
-          h('span', { className: 'stat-label' }, '💾 Memory:'),
-          h('span', { className: 'stat-value' }, `${pi.memory_percent || 0}%`)
-        ),
-        h('div', { className: 'stat' },
-          h('span', { className: 'stat-label' }, '⏱️ Uptime:'),
-          h('span', { className: 'stat-value' }, formatUptime(pi.uptime))
-        ),
-        pi.temperature && h('div', { className: 'stat' },
-          h('span', { className: 'stat-label' }, '🌡️ Temp:'),
-          h('span', { className: 'stat-value' }, `${pi.temperature}°C`)
+      // BODY — collapsible, shown when expanded
+      h('div', { className: `pi-card-body ${expanded ? 'expanded' : ''}` },
+        h('div', { className: 'pi-card-body-inner' },
+
+          // Room tag
+          pi.room_name && h('div', { className: 'pi-room', style: { marginBottom: '10px' } }, '📍 ' + pi.room_name),
+
+          // Stats
+          pi.online && h('div', { className: 'pi-stats' },
+            h('div', { className: 'stat' },
+              h('span', { className: 'stat-label' }, '💻 CPU:'),
+              h('span', { className: 'stat-value' }, `${pi.cpu_percent || 0}%`)
+            ),
+            h('div', { className: 'stat' },
+              h('span', { className: 'stat-label' }, '💾 Memory:'),
+              h('span', { className: 'stat-value' }, `${pi.memory_percent || 0}%`)
+            ),
+            h('div', { className: 'stat' },
+              h('span', { className: 'stat-label' }, '⏱️ Uptime:'),
+              h('span', { className: 'stat-value' }, formatUptime(pi.uptime))
+            ),
+            pi.temperature && h('div', { className: 'stat' },
+              h('span', { className: 'stat-label' }, '🌡️ Temp:'),
+              h('span', { className: 'stat-value' }, `${pi.temperature}°C`)
+            )
+          ),
+
+          // Current URL
+          pi.online && pi.current_url && h('div', { className: 'pi-url' },
+            h('strong', null, '🌐 URL: '),
+            h('span', null, pi.current_url.substring(0, 50) + (pi.current_url.length > 50 ? '...' : ''))
+          ),
+
+          // Actions
+          h('div', { className: 'pi-actions' },
+            h('button', {
+              className: 'btn btn-sm',
+              onClick: handleChangeUrl,
+              disabled: !pi.online || changing
+            }, changing ? '⏳ Changing...' : '🔗 Change URL'),
+            h('button', {
+              className: 'btn btn-sm',
+              onClick: handleUploadImage,
+              disabled: !pi.online || uploading
+            }, uploading ? '⏳ Uploading...' : '🖼️ Upload Image'),
+            h('button', {
+              className: 'btn btn-sm',
+              onClick: handleRestartBrowser,
+              disabled: !pi.online || restarting
+            }, restarting ? '⏳ Restarting...' : '🔄 Restart'),
+            h('button', {
+              className: 'btn btn-sm btn-warning',
+              onClick: handleReboot,
+              disabled: !pi.online || rebooting
+            }, rebooting ? '⏳ Rebooting...' : '⚡ Reboot'),
+            h('button', {
+              className: 'btn btn-sm',
+              onClick: handlePreview,
+              disabled: !pi.online || loadingPreview
+            }, loadingPreview ? '⏳ Loading...' : '📸 Preview'),
+            h('button', {
+              className: 'btn btn-sm btn-secondary',
+              onClick: () => { setShowSettings(true); setModalOpen(true); }
+            }, '⚙️ Settings'),
+            h('button', {
+              className: 'btn btn-sm btn-danger',
+              onClick: onRemove
+            }, '🗑️ Remove')
+          )
         )
-      ),
-
-      // Current URL
-      pi.online && pi.current_url && h('div', { className: 'pi-url' },
-        h('strong', null, '🌐 URL: '),
-        h('span', null, pi.current_url.substring(0, 50) + (pi.current_url.length > 50 ? '...' : ''))
-      ),
-
-      // Actions
-      h('div', { className: 'pi-actions' },
-        h('button', {
-          className: 'btn btn-sm',
-          onClick: handleChangeUrl,
-          disabled: !pi.online || changing
-        }, changing ? '⏳ Changing...' : '🔗 Change URL'),
-        h('button', {
-          className: 'btn btn-sm',
-          onClick: handleUploadImage,
-          disabled: !pi.online || uploading
-        }, uploading ? '⏳ Uploading...' : '🖼️ Upload Image'),
-        h('button', {
-          className: 'btn btn-sm',
-          onClick: handleRestartBrowser,
-          disabled: !pi.online || restarting
-        }, restarting ? '⏳ Restarting...' : '🔄 Restart'),
-        h('button', {
-          className: 'btn btn-sm btn-warning',
-          onClick: handleReboot,
-          disabled: !pi.online || rebooting
-        }, rebooting ? '⏳ Rebooting...' : '⚡ Reboot'),
-        h('button', {
-          className: 'btn btn-sm',
-          onClick: handlePreview,
-          disabled: !pi.online || loadingPreview
-        }, loadingPreview ? '⏳ Loading...' : '📸 Preview'),
-        h('button', {
-          className: 'btn btn-sm btn-secondary',
-          onClick: () => { setShowSettings(true); setModalOpen(true); }
-        }, '⚙️ Settings'),
-        h('button', {
-          className: 'btn btn-sm btn-danger',
-          onClick: onRemove
-        }, '🗑️ Remove')
       )
     ),
 
@@ -583,10 +606,10 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
             onClick: refreshScreenshot,
             disabled: loadingPreview
           }, loadingPreview ? '⏳ Refreshing...' : '🔄 Refresh'),
-          h('button', {
-            className: autoRefresh ? 'btn btn-warning' : 'btn btn-secondary',
-            onClick: () => setAutoRefresh(!autoRefresh)
-          }, autoRefresh ? '⏸️ Stop Auto-Refresh' : '▶️ Auto-Refresh (5s)'),
+          h('div', { className: 'toggle-row', style: { padding: '0', flex: '1' } },
+            h(ToggleSwitch, { checked: autoRefresh, onChange: setAutoRefresh }),
+            h('span', null, 'Auto-Refresh (5s)')
+          ),
           h('button', { className: 'btn btn-secondary', onClick: () => { setShowPreview(false); setAutoRefresh(false); } }, 'Close')
         )
       )
@@ -1274,32 +1297,26 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
             h('div', { className: 'form-group' },
               h('h3', null, '🔄 Auto-Update'),
               h('p', null, 'Automatically pull latest code from GitHub repository'),
-              h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' } },
-                h('strong', null, 'Status:'),
-                h('span', null, autoUpdateEnabled ? '✅ Enabled' : '❌ Disabled'),
-                h('span', { style: { color: '#666', marginLeft: '10px' } }, `Schedule: ${autoUpdateSchedule}`)
-              ),
-              h('button', {
-                className: autoUpdateEnabled ? 'btn btn-warning' : 'btn btn-primary',
-                onClick: handleToggleAutoUpdate,
-                disabled: !pi.online
-              }, autoUpdateEnabled ? '❌ Disable Auto-Update' : '✅ Enable Auto-Update')
+              h('div', { className: 'toggle-row' },
+                h(ToggleSwitch, { checked: !!autoUpdateEnabled, onChange: () => handleToggleAutoUpdate(), disabled: !pi.online }),
+                h('div', null,
+                  h('strong', null, 'Auto-Update'),
+                  h('p', null, `Schedule: ${autoUpdateSchedule}`)
+                )
+              )
             ),
 
             // Daily Reboot Section
             h('div', { className: 'form-group' },
               h('h3', null, '⚡ Daily Reboot'),
               h('p', null, 'Automatically reboot Pi daily to maintain stability'),
-              h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' } },
-                h('strong', null, 'Status:'),
-                h('span', null, rebootEnabled ? '✅ Enabled' : '❌ Disabled'),
-                h('span', { style: { color: '#666', marginLeft: '10px' } }, `Schedule: ${rebootSchedule}`)
-              ),
-              h('button', {
-                className: rebootEnabled ? 'btn btn-warning' : 'btn btn-primary',
-                onClick: handleToggleDailyReboot,
-                disabled: !pi.online
-              }, rebootEnabled ? '❌ Disable Daily Reboot' : '✅ Enable Daily Reboot')
+              h('div', { className: 'toggle-row' },
+                h(ToggleSwitch, { checked: !!rebootEnabled, onChange: () => handleToggleDailyReboot(), disabled: !pi.online }),
+                h('div', null,
+                  h('strong', null, 'Daily Reboot'),
+                  h('p', null, `Schedule: ${rebootSchedule}`)
+                )
+              )
             ),
 
             // Update Now Section
@@ -1397,13 +1414,8 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
                 h('p', { style: { color: 'var(--text-tertiary)', fontSize: '13px', marginBottom: '10px' } },
                   'Show slideshow instead of the offline page when the network is down.'
                 ),
-                h('label', { style: { display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' } },
-                  h('input', {
-                    type: 'checkbox',
-                    checked: playlistFallback,
-                    onChange: (e) => setPlaylistFallback(e.target.checked),
-                    style: { width: '18px', height: '18px' }
-                  }),
+                h('div', { className: 'toggle-row' },
+                  h(ToggleSwitch, { checked: playlistFallback, onChange: (v) => setPlaylistFallback(v) }),
                   h('span', null, 'Use playlist as network fallback')
                 )
               ),
