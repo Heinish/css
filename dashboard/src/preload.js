@@ -40,5 +40,14 @@ contextBridge.exposeInMainWorld('api', {
   // URL operations
   getAllUrls: () => ipcRenderer.invoke('db:getAllUrls'),
   addUrl: (url, name) => ipcRenderer.invoke('db:addUrl', url, name),
-  removeUrl: (id) => ipcRenderer.invoke('db:removeUrl', id)
+  removeUrl: (id) => ipcRenderer.invoke('db:removeUrl', id),
+
+  // Playlist operations
+  getPlaylist: (ip) => ipcRenderer.invoke('pi:getPlaylist', ip),
+  uploadPlaylistImage: (ip, imageBase64, filename) => ipcRenderer.invoke('pi:uploadPlaylistImage', ip, imageBase64, filename),
+  deletePlaylistImage: (ip, index) => ipcRenderer.invoke('pi:deletePlaylistImage', ip, index),
+  clearPlaylist: (ip) => ipcRenderer.invoke('pi:clearPlaylist', ip),
+  setPlaylistSettings: (ip, settings) => ipcRenderer.invoke('pi:setPlaylistSettings', ip, settings),
+  activatePlaylist: (ip) => ipcRenderer.invoke('pi:activatePlaylist', ip),
+  openMultipleImagesDialog: () => ipcRenderer.invoke('dialog:openMultipleImageFiles')
 });

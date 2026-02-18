@@ -200,6 +200,66 @@ async function deleteImage(ip) {
   }
 }
 
+async function getPlaylist(ip) {
+  try {
+    const response = await axios.get(`http://${ip}:5000/api/display/playlist`, { timeout: 5000 });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function uploadPlaylistImage(ip, imageBuffer, filename) {
+  try {
+    const form = new FormData();
+    form.append('image', imageBuffer, { filename });
+    const response = await axios.post(`http://${ip}:5000/api/display/playlist/images`, form, {
+      headers: form.getHeaders(),
+      timeout: 30000,
+      maxContentLength: 20 * 1024 * 1024
+    });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function deletePlaylistImage(ip, index) {
+  try {
+    const response = await axios.delete(`http://${ip}:5000/api/display/playlist/images/${index}`, { timeout: 5000 });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function clearPlaylist(ip) {
+  try {
+    const response = await axios.delete(`http://${ip}:5000/api/display/playlist`, { timeout: 5000 });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function setPlaylistSettings(ip, settings) {
+  try {
+    const response = await axios.post(`http://${ip}:5000/api/display/playlist`, settings, { timeout: 5000 });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function activatePlaylist(ip) {
+  try {
+    const response = await axios.post(`http://${ip}:5000/api/display/playlist/activate`, {}, { timeout: 5000 });
+    return { success: true, data: response.data };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
 // IPC Handlers for database operations
 function setupIpcHandlers() {
   // Pi HTTP operations (done in main process to avoid CSP)
@@ -286,6 +346,31 @@ function setupIpcHandlers() {
   ipcMain.handle('pi:deleteImage', async (event, ip) => {
     return deleteImage(ip);
   });
+
+  ipcMain.handle('dialog:openMultipleImageFiles', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Images for Playlist',
+      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }],
+      properties: ['openFile', 'multiSelections']
+    });
+    if (result.canceled || result.filePaths.length === 0) return { canceled: true };
+    const files = result.filePaths.map(filePath => ({
+      filename: path.basename(filePath),
+      imageBase64: fs.readFileSync(filePath).toString('base64'),
+      size: fs.statSync(filePath).size
+    }));
+    return { canceled: false, files };
+  });
+
+  ipcMain.handle('pi:getPlaylist', async (event, ip) => getPlaylist(ip));
+  ipcMain.handle('pi:uploadPlaylistImage', async (event, ip, imageBase64, filename) => {
+    const buffer = Buffer.from(imageBase64, 'base64');
+    return uploadPlaylistImage(ip, buffer, filename);
+  });
+  ipcMain.handle('pi:deletePlaylistImage', async (event, ip, index) => deletePlaylistImage(ip, index));
+  ipcMain.handle('pi:clearPlaylist', async (event, ip) => clearPlaylist(ip));
+  ipcMain.handle('pi:setPlaylistSettings', async (event, ip, settings) => setPlaylistSettings(ip, settings));
+  ipcMain.handle('pi:activatePlaylist', async (event, ip) => activatePlaylist(ip));
 
   // Pi database operations
   ipcMain.handle('db:getAllPis', async () => {
