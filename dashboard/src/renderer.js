@@ -484,7 +484,8 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
         h('div', { className: `status-dot ${pi.online ? 'online' : 'offline'}` }),
         h('div', { className: 'pi-card-header-info' },
           h('h3', null, pi.name),
-          h('div', { className: 'pi-ip' }, pi.ip_address)
+          h('div', { className: 'pi-ip' }, pi.ip_address),
+          pi.room_name && h('div', { className: 'pi-room' }, '📍 ' + pi.room_name)
         ),
         pi.online && (() => {
           const updateType = getUpdateType(pi.version, latestVersion);
@@ -521,9 +522,6 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
       // BODY — collapsible, shown when expanded
       h('div', { className: `pi-card-body ${expanded ? 'expanded' : ''}` },
         h('div', { className: 'pi-card-body-inner' },
-
-          // Room tag
-          pi.room_name && h('div', { className: 'pi-room', style: { marginBottom: '10px' } }, '📍 ' + pi.room_name),
 
           // Stats
           pi.online && h('div', { className: 'pi-stats' },
