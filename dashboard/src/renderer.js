@@ -316,8 +316,9 @@ function App() {
 
 // ===== Pi Card Component =====
 function getUpdateType(current, latest) {
-  if (!current || !latest || current === 'unknown') return 'unknown';
-  if (current === latest) return null;
+  if (!current || current === 'unknown') return 'no-version'; // Pi has no version info
+  if (!latest) return 'no-check';                             // GitHub fetch failed, can't compare
+  if (current === latest) return null;                        // Up to date
   const [cMaj, cMin] = current.split('.').map(Number);
   const [lMaj, lMin] = latest.split('.').map(Number);
   if (lMaj > cMaj) return 'major';
@@ -458,17 +459,27 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
           const updateType = getUpdateType(pi.version, latestVersion);
           const versionLabel = pi.version || 'unknown';
           if (updateType === null) {
+            // Up to date
             return h('div', { className: 'pi-version up-to-date' }, `v${versionLabel} ✓`);
           }
+          if (updateType === 'no-check') {
+            // Couldn't fetch latest version from GitHub — just show version, no badge
+            return h('div', { className: 'pi-version up-to-date' }, `v${versionLabel}`);
+          }
+          if (updateType === 'no-version') {
+            // Pi hasn't been updated to versioned agent yet
+            return h('div', { className: 'pi-version update-minor' },
+              h('span', { className: 'version-type-badge' }, 'Update recommended')
+            );
+          }
           const labels = {
-            major: { text: 'Major update available', className: 'pi-version update-major' },
-            minor: { text: 'New features available', className: 'pi-version update-minor' },
-            patch: { text: 'Bug fix available', className: 'pi-version update-patch' },
-            unknown: { text: `v${versionLabel} — update recommended`, className: 'pi-version update-minor' },
+            major: { text: 'Major update', className: 'pi-version update-major' },
+            minor: { text: 'New features', className: 'pi-version update-minor' },
+            patch: { text: 'Bug fix', className: 'pi-version update-patch' },
           };
           const { text, className } = labels[updateType];
           return h('div', { className },
-            h('span', null, `v${versionLabel} → v${latestVersion || '?'}`),
+            h('span', null, `v${versionLabel} → v${latestVersion}`),
             h('span', { className: 'version-type-badge' }, text)
           );
         })()
