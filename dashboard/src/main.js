@@ -56,6 +56,18 @@ function initDatabase() {
 // HTTP requests to Pi (no CSP in main process)
 const axios = require('axios');
 
+async function getLatestVersion() {
+  try {
+    const response = await axios.get(
+      'https://raw.githubusercontent.com/Heinish/css/main/VERSION',
+      { timeout: 5000 }
+    );
+    return { success: true, version: response.data.trim() };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
 async function getPiStatus(ip) {
   try {
     const response = await axios.get(`http://${ip}:5000/api/status`, { timeout: 5000 });
@@ -275,6 +287,8 @@ async function activatePlaylist(ip) {
 
 // IPC Handlers for database operations
 function setupIpcHandlers() {
+  ipcMain.handle('app:getLatestVersion', async () => getLatestVersion());
+
   // Pi HTTP operations (done in main process to avoid CSP)
   ipcMain.handle('pi:getStatus', async (event, ip) => {
     return getPiStatus(ip);

@@ -50,6 +50,7 @@ function App() {
   const [rooms, setRooms] = useState([]);
   const [urls, setUrls] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [latestVersion, setLatestVersion] = useState(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState('');
@@ -85,6 +86,10 @@ function App() {
       console.error('Failed to load data:', error);
       setLoading(false);
     }
+    // Fetch latest version from GitHub (non-blocking)
+    window.api.getLatestVersion().then(result => {
+      if (result.success) setLatestVersion(result.version);
+    });
   }
 
   async function refreshPiStatus(force) {
@@ -276,6 +281,7 @@ function App() {
                 pi,
                 rooms,
                 urls,
+                latestVersion,
                 onRemove: () => handleRemovePi(pi.id),
                 onUpdate: loadData,
                 setModalOpen
@@ -309,7 +315,17 @@ function App() {
 }
 
 // ===== Pi Card Component =====
-function PiCard({ pi, rooms, urls, onRemove, onUpdate, setModalOpen }) {
+function getUpdateType(current, latest) {
+  if (!current || !latest || current === 'unknown') return 'unknown';
+  if (current === latest) return null;
+  const [cMaj, cMin] = current.split('.').map(Number);
+  const [lMaj, lMin] = latest.split('.').map(Number);
+  if (lMaj > cMaj) return 'major';
+  if (lMin > cMin) return 'minor';
+  return 'patch';
+}
+
+function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOpen }) {
   const [changing, setChanging] = useState(false);
   const [showUrlDialog, setShowUrlDialog] = useState(false);
   const [newUrl, setNewUrl] = useState('');
@@ -437,7 +453,25 @@ function PiCard({ pi, rooms, urls, onRemove, onUpdate, setModalOpen }) {
       h('div', { className: 'pi-info' },
         h('h3', null, pi.name),
         h('div', { className: 'pi-ip' }, pi.ip_address),
-        pi.room_name && h('div', { className: 'pi-room' }, '📍 ' + pi.room_name)
+        pi.room_name && h('div', { className: 'pi-room' }, '📍 ' + pi.room_name),
+        pi.online && (() => {
+          const updateType = getUpdateType(pi.version, latestVersion);
+          const versionLabel = pi.version || 'unknown';
+          if (updateType === null) {
+            return h('div', { className: 'pi-version up-to-date' }, `v${versionLabel} ✓`);
+          }
+          const labels = {
+            major: { text: 'Major update available', className: 'pi-version update-major' },
+            minor: { text: 'New features available', className: 'pi-version update-minor' },
+            patch: { text: 'Bug fix available', className: 'pi-version update-patch' },
+            unknown: { text: `v${versionLabel} — update recommended`, className: 'pi-version update-minor' },
+          };
+          const { text, className } = labels[updateType];
+          return h('div', { className },
+            h('span', null, `v${versionLabel} → v${latestVersion || '?'}`),
+            h('span', { className: 'version-type-badge' }, text)
+          );
+        })()
       ),
 
       // Stats

@@ -73,6 +73,15 @@ def save_playlist_config(playlist):
     config['playlist_fallback_enabled'] = playlist.get('fallback_enabled', False)
     save_config(config)
 
+def get_agent_version():
+    """Read version from the repo's VERSION file"""
+    try:
+        version_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'VERSION')
+        with open(version_file, 'r') as f:
+            return f.read().strip()
+    except Exception:
+        return 'unknown'
+
 def get_cpu_temp():
     """Get CPU temperature in Celsius"""
     try:
@@ -118,6 +127,7 @@ def get_status():
         'name': config.get('name', 'Unknown'),
         'room': config.get('room', ''),
         'current_url': config.get('display_url', ''),
+        'version': get_agent_version(),
         'uptime': int(time.time() - psutil.boot_time()),
         'cpu_percent': psutil.cpu_percent(interval=1),
         'memory_percent': psutil.virtual_memory().percent,

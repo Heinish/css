@@ -3,6 +3,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('api', {
+  // App-level operations
+  getLatestVersion: () => ipcRenderer.invoke('app:getLatestVersion'),
+
   // Pi HTTP operations (via main process to bypass CSP)
   getPiStatus: (ip) => ipcRenderer.invoke('pi:getStatus', ip),
   updatePiConfig: (ip, config) => ipcRenderer.invoke('pi:updateConfig', ip, config),
