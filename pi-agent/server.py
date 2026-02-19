@@ -364,7 +364,7 @@ def update():
         git_dir = '/opt/css' if os.path.exists('/opt/css/.git') else '/opt/css-agent'
 
         result = subprocess.run(
-            ['git', '-C', git_dir, 'pull'],
+            ['git', '-C', git_dir, '-c', f'safe.directory={git_dir}', 'pull'],
             capture_output=True,
             text=True,
             timeout=30
