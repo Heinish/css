@@ -456,45 +456,36 @@ function setupIpcHandlers() {
 
 // ===== Auto-Updater Setup =====
 function setupAutoUpdater() {
-  // Don't check for updates in development
-  if (process.env.NODE_ENV === 'development') return;
-
-  autoUpdater.autoDownload = false; // Ask user before downloading
+  autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('update-available', (info) => {
-    if (mainWindow) {
-      mainWindow.webContents.send('update:available', { version: info.version });
-    }
+    if (mainWindow) mainWindow.webContents.send('update:available', { version: info.version });
   });
 
   autoUpdater.on('update-not-available', () => {
-    if (mainWindow) {
-      mainWindow.webContents.send('update:not-available');
-    }
+    if (mainWindow) mainWindow.webContents.send('update:not-available');
   });
 
   autoUpdater.on('download-progress', (progress) => {
-    if (mainWindow) {
-      mainWindow.webContents.send('update:progress', { percent: Math.round(progress.percent) });
-    }
+    if (mainWindow) mainWindow.webContents.send('update:progress', { percent: Math.round(progress.percent) });
   });
 
   autoUpdater.on('update-downloaded', () => {
-    if (mainWindow) {
-      mainWindow.webContents.send('update:downloaded');
-    }
+    if (mainWindow) mainWindow.webContents.send('update:downloaded');
   });
 
   autoUpdater.on('error', (err) => {
-    if (mainWindow) {
-      mainWindow.webContents.send('update:error', { message: err.message });
-    }
+    if (mainWindow) mainWindow.webContents.send('update:error', { message: err.message });
   });
 
-  // Check for updates 5 seconds after launch
-  setTimeout(() => autoUpdater.checkForUpdates(), 5000);
+  // Only auto-check on startup in production
+  if (process.env.NODE_ENV !== 'development') {
+    setTimeout(() => autoUpdater.checkForUpdates(), 5000);
+  }
 }
+
+
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
