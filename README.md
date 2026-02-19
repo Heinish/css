@@ -1,206 +1,243 @@
-# CSS - Cheap Signage Solutions
+# 🖥️ CSS — Cheap Signage Solutions
 
-A complete Raspberry Pi-based digital signage system with centralized management dashboard.
+A complete **Raspberry Pi digital signage system** with a Windows management dashboard. Control all your displays from one place — change URLs, upload images, monitor health, and push updates without touching a single Pi.
 
-## Project Overview
+---
 
-CSS turns Raspberry Pi devices into dedicated signage displays managed from a Windows desktop app. Perfect for retail displays, information boards, conference rooms, and digital menu boards.
+## 🧩 How It Works
 
-## Features
+```
+Windows Dashboard  ──HTTP──►  Pi Agent (Flask API)  ──►  Chromium (FullPageOS)
+```
 
-### Dashboard (Windows)
-- Multi-Pi management from one interface
-- Real-time monitoring (CPU, memory, uptime, temperature)
-- Change display URLs or upload images directly
-- Screenshot preview of what each Pi is displaying
-- Screen rotation control
-- Room organization and filtering
-- Bulk browser restart
-- Saved URL library
-- Remote update and reboot controls
-- Auto-update and daily reboot scheduling
+Each Raspberry Pi runs a small Flask API that the dashboard talks to over your local network. The dashboard stores all your Pi info locally — no cloud, no accounts.
 
-### Pi Agent
-- Full-screen Chromium browser via FullPageOS
-- REST API for remote control
-- Screenshot capture
+---
+
+## ✨ Dashboard Features
+
+| Feature | Description |
+|---------|-------------|
+| 🖥️ **Multi-Pi management** | Manage all your Pis from one window |
+| 📊 **Live monitoring** | CPU, memory, temperature, uptime per Pi |
+| 🔗 **Change URL** | Update what's displayed on any Pi instantly |
+| 🖼️ **Upload image** | Send an image directly to a Pi's display |
+| 📸 **Screenshot preview** | See exactly what each Pi is showing |
+| 🗂️ **Slideshow/playlist** | Upload up to 20 images for a rotating slideshow |
+| 🏢 **Room management** | Organise Pis into rooms, filter by room |
+| 📋 **Saved URLs** | Save frequently used URLs for quick access |
+| 🔄 **Restart browser** | Restart Chromium on any Pi or all at once |
+| ⚡ **Reboot Pi** | Remotely reboot any Pi |
+| ⚙️ **Auto-update** | Schedule automatic updates from GitHub |
+| 🌙 **Daily reboot** | Schedule a nightly reboot for stability |
+| 📺 **Screen rotation** | Rotate display 0°/90°/180°/270° |
+| 🌐 **Network config** | Switch between DHCP and static IP |
+| ⬆️ **Dashboard auto-update** | Dashboard updates itself when a new version is released |
+
+---
+
+## 🍓 Pi Agent Features
+
+- Full-screen Chromium kiosk via **FullPageOS**
+- REST API on port 5000 for remote control
+- Screenshot capture (scrot / fbgrab)
 - Image upload and display
 - Screen rotation with persistence across reboots
+- Slideshow mode with fade transitions
+- Network fallback: show slideshow when internet is down
 - Network configuration (static IP / DHCP)
-- Auto-updates from GitHub
+- Auto-updates from GitHub with self-restart
 - Chromium translate popup disabled automatically
 
-## Requirements
+---
 
-### Hardware
+## 📋 Requirements
+
+**Hardware:**
 - Raspberry Pi 4 or Pi 5
-- MicroSD card (16GB minimum)
+- MicroSD card (16 GB minimum)
 - Display with HDMI input
-- Ethernet or WiFi connection
+- Network connection (Ethernet or WiFi)
 
-### Software
-- [FullPageOS](https://github.com/guysoft/FullPageOS) flashed to SD card
+**Software:**
+- [FullPageOS](https://github.com/guysoft/FullPageOS) flashed to the SD card
 - Windows PC for the dashboard
 
-## Quick Start
+---
 
-### 1. Install the Dashboard
+## 🚀 Quick Start
 
-Download [CSS-Dashboard-Setup.exe](https://github.com/Heinish/css/releases/latest) and run it. No admin rights needed - it installs and launches automatically.
+### Step 1 — Install the Dashboard (Windows)
 
-### 2. Set up the Pi
+Download and run **[CSS-Dashboard-Setup.exe](https://github.com/Heinish/css/releases/latest)**.
+
+No admin rights needed — it installs and launches automatically. Future updates are delivered automatically through the built-in updater.
+
+---
+
+### Step 2 — Flash the Pi
 
 Flash **FullPageOS** to the SD card using [Raspberry Pi Imager](https://www.raspberrypi.com/software/):
-- Choose "Use custom" and select the FullPageOS image
-- Configure WiFi and enable SSH in the imager settings
-- Flash and boot the Pi
 
-### 3. Install CSS Agent
+1. Click **"Choose OS"** → **"Use custom"** → select the FullPageOS `.img` file
+2. Open settings (⚙️) and configure **WiFi** and **enable SSH**
+3. Flash and boot the Pi
 
-SSH into the Pi and run:
+---
+
+### Step 3 — Install the CSS Agent
+
+SSH into the Pi and run one command:
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/Heinish/css/main/pi-agent/scripts/install-fullpageos.sh | sudo bash
 ```
 
-This installs the CSS agent on top of FullPageOS. It will:
-- Install required packages (Python, scrot, fbgrab, etc.)
+This will:
+- Install required packages (Python, scrot, etc.)
 - Clone the CSS repo to `/opt/css`
-- Set up the API service on port 5000
+- Set up the API service on port **5000**
 - Disable Chromium's translate popup
 - Configure log rotation
 
-### 4. Restart Chromium
+---
 
-After installation, restart Chromium when prompted (or reboot the Pi).
+### Step 4 — Add the Pi to the Dashboard
 
-### 5. Add Pi to Dashboard
+Open the **CSS Dashboard** on your Windows PC, click **➕ Add Pi**, and enter the Pi's IP address. That's it!
 
-Open the CSS Dashboard on your Windows PC, click "Add Pi", and enter the Pi's IP address.
+> **Tip:** Find the Pi's IP with `hostname -I` in SSH, or check your router's device list.
 
-## Updating
+---
 
-### Update a Pi from the dashboard
-Go to Settings > System > Update Now
+## 🔄 Updating
 
-### Update a Pi manually via SSH
+### Dashboard (Windows)
+The dashboard checks for updates automatically on startup. When an update is available, a banner appears — click **Download** then **Restart & Install**.
+
+Or click **⬆️ Check for Updates** in the toolbar at any time.
+
+### Pi Agent — from the dashboard
+Go to the Pi card → expand → **⚙️ Settings** → **System** tab → **🚀 Update Now**
+
+Or click the version badge on the Pi card if an update is available.
+
+### Pi Agent — manually via SSH
 ```bash
-cd /opt/css && sudo git pull && sudo systemctl restart css-agent
+cd /opt/css && sudo git -c safe.directory=/opt/css pull origin main && sudo systemctl restart css-agent
 ```
 
-## Configuration
+---
 
-### Pi Configuration File
-Location: `/etc/css/config.json`
-
-```json
-{
-  "name": "Conference Room A",
-  "room": "",
-  "display_url": "https://your-signage-url.com",
-  "api_port": 5000
-}
-```
-
-## REST API
+## 🌐 REST API
 
 Base URL: `http://{pi-ip}:5000`
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/status` | GET | Get current status and stats |
-| `/api/config` | GET/POST | Get or update configuration |
+| `/api/status` | GET | Status, stats, version |
+| `/api/config` | GET/POST | Read or update config |
 | `/api/display/url` | POST | Change displayed URL |
 | `/api/display/screenshot` | GET | Capture screenshot |
-| `/api/display/rotate` | POST | Rotate display (0, 90, 180, 270) |
+| `/api/display/rotate` | POST | Rotate display (0/90/180/270) |
 | `/api/display/image` | POST | Upload image to display |
-| `/api/display/image` | DELETE | Delete uploaded image |
+| `/api/display/image` | DELETE | Remove uploaded image |
+| `/api/display/playlist` | GET/POST | Playlist settings |
+| `/api/display/playlist/images` | POST | Add image to playlist |
+| `/api/display/playlist/activate` | POST | Start slideshow |
 | `/api/browser/restart` | POST | Restart Chromium |
 | `/api/system/reboot` | POST | Reboot the Pi |
-| `/api/update` | POST | Pull updates from GitHub |
-| `/api/network/ip` | POST | Configure network (static/DHCP) |
-| `/api/settings/autoupdate` | GET/POST | Auto-update settings |
-| `/api/settings/reboot` | GET/POST | Daily reboot settings |
+| `/api/update` | POST | Pull latest from GitHub |
+| `/api/network/ip` | POST | Configure network |
+| `/api/settings/autoupdate` | GET/POST | Auto-update schedule |
+| `/api/settings/reboot` | GET/POST | Daily reboot schedule |
 | `/api/health` | GET | Health check |
 
-## Services
+---
 
-The installer creates these systemd units:
+## ⚙️ Services (on each Pi)
 
 | Service | Description |
 |---------|-------------|
-| `css-agent.service` | Flask REST API server (always running) |
-| `css-auto-update.timer` | Auto-update timer (disabled by default) |
-| `css-daily-reboot.timer` | Daily reboot at 3:00 AM (disabled by default) |
+| `css-agent.service` | Flask REST API — always running |
+| `css-auto-update.timer` | Scheduled auto-update (off by default) |
+| `css-daily-reboot.timer` | Daily reboot at 3:00 AM (off by default) |
 
-FullPageOS handles the Chromium kiosk browser separately.
+FullPageOS manages Chromium separately as a kiosk browser.
 
-### Useful commands
+**Useful commands:**
 ```bash
-# Check agent status
-sudo systemctl status css-agent
-
-# View logs
-sudo journalctl -u css-agent -f
-
-# Restart agent
-sudo systemctl restart css-agent
+sudo systemctl status css-agent     # Check if agent is running
+sudo journalctl -u css-agent -f     # Live logs
+sudo systemctl restart css-agent    # Restart the agent
 ```
 
-## Project Structure
+---
+
+## 📁 Project Structure
 
 ```
 css/
-├── pi-agent/                  # Raspberry Pi agent
-│   ├── server.py              # Flask REST API
+├── pi-agent/
+│   ├── server.py                    # Flask REST API
 │   ├── scripts/
-│   │   ├── install-fullpageos.sh  # Installation script
-│   │   └── setup-log-rotation.sh  # Log rotation setup
+│   │   ├── install-fullpageos.sh    # One-line installer
+│   │   └── setup-log-rotation.sh
 │   ├── static/
-│   │   ├── waiting.html       # Default waiting page
-│   │   └── offline.html       # Offline fallback page
-│   └── systemd/               # Service and timer files
+│   │   ├── waiting.html             # Shown before a URL is set
+│   │   └── offline.html             # Shown when network is down
+│   └── systemd/                     # Service and timer unit files
 │
-├── dashboard/                 # Electron desktop app (Windows)
+├── dashboard/
 │   ├── src/
-│   │   ├── main.js            # Main process (IPC + HTTP)
-│   │   ├── preload.js         # IPC bridge
-│   │   ├── renderer.js        # React UI
-│   │   └── database/          # JSON local database
+│   │   ├── main.js                  # Main process (IPC, HTTP, auto-updater)
+│   │   ├── preload.js               # Secure IPC bridge
+│   │   ├── renderer.js              # React UI
+│   │   └── database/                # Local JSON database
 │   └── package.json
 │
+├── VERSION                          # Current agent + dashboard version
 └── README.md
 ```
 
-## Troubleshooting
+---
 
-### API not responding
+## 🔧 Troubleshooting
+
+**Agent not responding:**
 ```bash
 sudo systemctl status css-agent
 sudo journalctl -u css-agent -n 50
 sudo systemctl restart css-agent
 ```
 
-### Screenshot not working
-Check the agent logs for which method is being used:
+**Screenshot not working:**
 ```bash
 sudo journalctl -u css-agent -n 20
 ```
-The agent tries scrot first, then falls back to fbgrab.
+The agent tries `scrot` first, then falls back to `fbgrab`.
 
-### Find Pi's IP address
+**Find Pi's IP address:**
 ```bash
 hostname -I
 ```
 
-### Pi stuck in reboot loop
-If daily reboot was enabled with old timer files:
+**Pi update button not working (old install):**
+Run this once via SSH:
+```bash
+cd /opt/css && sudo git -c safe.directory=/opt/css pull origin main && sudo systemctl restart css-agent
+```
+After that the dashboard update button works for all future updates.
+
+**Daily reboot stuck in loop (old install):**
 ```bash
 sudo systemctl disable css-daily-reboot.timer
 sudo systemctl stop css-daily-reboot.timer
+cd /opt/css && sudo git -c safe.directory=/opt/css pull origin main && sudo systemctl restart css-agent
 ```
-Then update via `cd /opt/css && sudo git pull && sudo systemctl restart css-agent`.
 
-## License
+---
 
-TBD
+## 📄 License
+
+MIT
