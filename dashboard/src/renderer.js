@@ -59,6 +59,13 @@ function App() {
   const [restartingAll, setRestartingAll] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [toasts, setToasts] = useState([]);
+
+  function showToast(message, type = 'info') {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+  }
 
   useEffect(() => {
     loadData();
@@ -121,7 +128,7 @@ function App() {
       setModalOpen(false);
       setTimeout(() => refreshPiStatus(), 100);
     } catch (error) {
-      alert('Failed to add Pi: ' + error.message);
+      showToast('Failed to add Pi: ' + error.message, 'error');
     }
   }
 
@@ -131,7 +138,7 @@ function App() {
       await window.api.removePi(id);
       setPis(pis.filter(p => p.id !== id));
     } catch (error) {
-      alert('Failed to remove Pi: ' + error.message);
+      showToast('Failed to remove Pi: ' + error.message, 'error');
     }
   }
 
@@ -141,20 +148,20 @@ function App() {
       setRooms([...rooms, newRoom]);
       return true;
     } catch (error) {
-      alert('❌ Failed to add room: ' + error.message);
+      showToast('Failed to add room: ' + error.message, 'error');
       return false;
     }
   }
 
   async function handleRemoveRoom(id) {
-    if (!confirm('🗑️ Delete this room? Pis will be unassigned.')) return;
+    if (!confirm('Delete this room? Pis will be unassigned.')) return;
     try {
       await window.api.removeRoom(id);
       setRooms(rooms.filter(r => r.id !== id));
       // Refresh Pis to update room_name
       await loadData();
     } catch (error) {
-      alert('❌ Failed to remove room: ' + error.message);
+      showToast('Failed to remove room: ' + error.message, 'error');
     }
   }
 
@@ -164,18 +171,18 @@ function App() {
       setUrls([...urls, newUrl]);
       return true;
     } catch (error) {
-      alert('❌ Failed to add URL: ' + error.message);
+      showToast('Failed to add URL: ' + error.message, 'error');
       return false;
     }
   }
 
   async function handleRemoveUrl(id) {
-    if (!confirm('🗑️ Delete this saved URL?')) return;
+    if (!confirm('Delete this saved URL?')) return;
     try {
       await window.api.removeUrl(id);
       setUrls(urls.filter(u => u.id !== id));
     } catch (error) {
-      alert('❌ Failed to remove URL: ' + error.message);
+      showToast('Failed to remove URL: ' + error.message, 'error');
     }
   }
 
@@ -183,7 +190,7 @@ function App() {
     const onlinePis = pis.filter(pi => pi.online);
 
     if (onlinePis.length === 0) {
-      alert('⚠️ No online Pis to restart');
+      showToast('No online Pis to restart', 'warning');
       return;
     }
 
@@ -209,9 +216,9 @@ function App() {
     setRestartingAll(false);
 
     if (failCount === 0) {
-      alert(`✅ Successfully restarted ${successCount} browser${successCount !== 1 ? 's' : ''}!`);
+      showToast(`Successfully restarted ${successCount} browser${successCount !== 1 ? 's' : ''}!`, 'success');
     } else {
-      alert(`⚠️ Restarted ${successCount} browser${successCount !== 1 ? 's' : ''}, ${failCount} failed`);
+      showToast(`Restarted ${successCount} browser${successCount !== 1 ? 's' : ''}, ${failCount} failed`, 'warning');
     }
   }
 
@@ -285,7 +292,8 @@ function App() {
                 latestVersion,
                 onRemove: () => handleRemovePi(pi.id),
                 onUpdate: loadData,
-                setModalOpen
+                setModalOpen,
+                showToast
               }));
         })()
       )
@@ -311,7 +319,10 @@ function App() {
       onClose: () => { setShowUrlManager(false); setModalOpen(false); },
       onAddUrl: handleAddUrl,
       onRemoveUrl: handleRemoveUrl
-    })
+    }),
+
+    // Toast Notifications
+    h(ToastContainer, { toasts })
   );
 }
 
@@ -341,7 +352,14 @@ function ToggleSwitch({ checked, onChange, disabled }) {
   );
 }
 
-function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOpen }) {
+function ToastContainer({ toasts }) {
+  if (!toasts.length) return null;
+  return h('div', { className: 'toast-container' },
+    toasts.map(t => h('div', { key: t.id, className: `toast toast-${t.type}` }, t.message))
+  );
+}
+
+function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOpen, showToast }) {
   const [expanded, setExpanded] = useState(false);
   const [changing, setChanging] = useState(false);
   const [showUrlDialog, setShowUrlDialog] = useState(false);
@@ -374,7 +392,7 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
       setScreenshot(result.data);
       setShowPreview(true);
     } else {
-      alert('Failed to get screenshot: ' + result.error);
+      showToast('Failed to get screenshot: ' + result.error, 'error');
     }
     setLoadingPreview(false);
   }
@@ -401,10 +419,10 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
     const result = await ApiService.changeUrl(pi.ip_address, newUrl);
 
     if (result.success) {
-      alert('✅ URL changed successfully!');
+      showToast('URL changed successfully!', 'success');
       onUpdate();
     } else {
-      alert('❌ Failed to change URL: ' + result.error);
+      showToast('Failed to change URL: ' + result.error, 'error');
     }
 
     setChanging(false);
@@ -415,9 +433,9 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
     const result = await ApiService.restartBrowser(pi.ip_address);
 
     if (result.success) {
-      alert('🔄 Browser restarted successfully!');
+      showToast('Browser restarted successfully!', 'success');
     } else {
-      alert('❌ Failed to restart browser: ' + result.error);
+      showToast('Failed to restart browser: ' + result.error, 'error');
     }
 
     setRestarting(false);
@@ -428,7 +446,7 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
     if (fileResult.canceled) return;
 
     if (fileResult.size > 20 * 1024 * 1024) {
-      alert('Image file is too large. Maximum size is 20 MB.');
+      showToast('Image file is too large. Maximum size is 20 MB.', 'error');
       return;
     }
 
@@ -437,9 +455,9 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
     setUploading(false);
 
     if (result.success) {
-      alert('✅ Image uploaded and now displaying on the Pi!');
+      showToast('Image uploaded and now displaying on the Pi!', 'success');
     } else {
-      alert('❌ Failed to upload image: ' + result.error);
+      showToast('Failed to upload image: ' + result.error, 'error');
     }
   }
 
@@ -450,9 +468,9 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
     const result = await ApiService.rebootPi(pi.ip_address);
 
     if (result.success) {
-      alert('⚡ Pi is rebooting! It will be back online in ~30 seconds.');
+      showToast('Pi is rebooting! Back online in ~30 seconds.', 'info');
     } else {
-      alert('❌ Failed to reboot Pi: ' + result.error);
+      showToast('Failed to reboot Pi: ' + result.error, 'error');
     }
 
     setRebooting(false);
@@ -466,10 +484,10 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
     const result = await window.api.updatePiNow(pi.ip_address);
     setUpdatingAgent(false);
     if (result.success) {
-      alert(`✅ ${pi.name} updated! The agent is restarting.`);
+      showToast(`${pi.name} updated! The agent is restarting.`, 'success');
       setTimeout(onUpdate, 4000);
     } else {
-      alert('❌ Update failed: ' + result.error);
+      showToast('Update failed: ' + result.error, 'error');
     }
   }
 
@@ -660,7 +678,8 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
       pi,
       rooms,
       onClose: () => { setShowSettings(false); setModalOpen(false); },
-      onUpdate
+      onUpdate,
+      showToast
     })
   );
 }
@@ -842,7 +861,7 @@ function UrlManagerDialog({ urls, onClose, onAddUrl, onRemoveUrl }) {
 }
 
 // ===== Pi Settings Dialog =====
-function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
+function PiSettingsDialog({ pi, rooms, onClose, onUpdate, showToast }) {
   const [activeTab, setActiveTab] = useState('general');
   const [piName, setPiName] = useState(pi.name);
   const [piRoom, setPiRoom] = useState(pi.room_id || '');
@@ -932,20 +951,20 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
     const toUpload = fileResult.files.slice(0, remaining);
 
     if (toUpload.length < fileResult.files.length) {
-      alert(`Playlist is limited to 20 images. Only uploading ${toUpload.length} of ${fileResult.files.length} selected.`);
+      showToast(`Playlist limited to 20 images. Uploading ${toUpload.length} of ${fileResult.files.length} selected.`, 'warning');
     }
 
     setUploadingPlaylist(true);
     let uploaded = 0;
     for (const file of toUpload) {
-      if (file.size > 20 * 1024 * 1024) { alert(`${file.filename} is too large (max 20 MB)`); continue; }
+      if (file.size > 20 * 1024 * 1024) { showToast(`${file.filename} is too large (max 20 MB)`, 'warning'); continue; }
       const result = await window.api.uploadPlaylistImage(pi.ip_address, file.imageBase64, file.filename);
       if (result.success) uploaded++;
-      else alert(`Failed to upload ${file.filename}: ${result.error}`);
+      else showToast(`Failed to upload ${file.filename}: ${result.error}`, 'error');
     }
     setUploadingPlaylist(false);
     if (uploaded > 0) {
-      alert(`Uploaded ${uploaded} image${uploaded !== 1 ? 's' : ''} to playlist!`);
+      showToast(`Uploaded ${uploaded} image${uploaded !== 1 ? 's' : ''} to playlist!`, 'success');
       loadPlaylist();
     }
   }
@@ -954,14 +973,14 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
     if (!confirm('Remove this image from the playlist?')) return;
     const result = await window.api.deletePlaylistImage(pi.ip_address, index);
     if (result.success) loadPlaylist();
-    else alert('Failed to delete image: ' + result.error);
+    else showToast('Failed to delete image: ' + result.error, 'error');
   }
 
   async function handleClearPlaylist() {
     if (!confirm('Clear all images from the playlist?')) return;
     const result = await window.api.clearPlaylist(pi.ip_address);
-    if (result.success) { setPlaylistImages([]); alert('Playlist cleared.'); }
-    else alert('Failed to clear playlist: ' + result.error);
+    if (result.success) { setPlaylistImages([]); showToast('Playlist cleared.', 'success'); }
+    else showToast('Failed to clear playlist: ' + result.error, 'error');
   }
 
   async function handleSavePlaylistSettings() {
@@ -972,15 +991,15 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
       fallback_enabled: playlistFallback
     });
     setSavingPlaylist(false);
-    if (result.success) alert('Playlist settings saved!');
-    else alert('Failed to save settings: ' + result.error);
+    if (result.success) showToast('Playlist settings saved!', 'success');
+    else showToast('Failed to save settings: ' + result.error, 'error');
   }
 
   async function handleActivatePlaylist() {
-    if (playlistImages.length === 0) { alert('Add at least one image first!'); return; }
+    if (playlistImages.length === 0) { showToast('Add at least one image first!', 'warning'); return; }
     const result = await window.api.activatePlaylist(pi.ip_address);
-    if (result.success) alert('Slideshow is now displaying on the Pi!');
-    else alert('Failed to activate playlist: ' + result.error);
+    if (result.success) showToast('Slideshow is now displaying on the Pi!', 'success');
+    else showToast('Failed to activate playlist: ' + result.error, 'error');
   }
 
   async function handlePreview() {
@@ -990,7 +1009,7 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
       setScreenshot(result.data);
       setShowPreview(true);
     } else {
-      alert('❌ Failed to get screenshot: ' + result.error);
+      showToast('Failed to get screenshot: ' + result.error, 'error');
     }
     setLoadingPreview(false);
   }
@@ -998,9 +1017,9 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
   async function handleRotate() {
     const result = await window.api.rotateScreen(pi.ip_address, parseInt(rotation));
     if (result.success) {
-      alert('✅ Screen rotated successfully! Reboot required to apply.');
+      showToast('Screen rotated! Reboot required to apply.', 'success');
     } else {
-      alert('❌ Failed to rotate screen: ' + result.error);
+      showToast('Failed to rotate screen: ' + result.error, 'error');
     }
   }
 
@@ -1008,14 +1027,14 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
     if (networkMode === 'static') {
       // Validate static IP configuration
       if (!staticIp || !netmask || !gateway) {
-        alert('❌ Please fill in all required fields (IP, Netmask, Gateway)');
+        showToast('Please fill in all required fields (IP, Netmask, Gateway)', 'error');
         return;
       }
 
       // Basic IP validation
       const validOctets = ip => /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) && ip.split('.').every(n => parseInt(n) <= 255);
       if (!validOctets(staticIp) || !validOctets(netmask) || !validOctets(gateway)) {
-        alert('❌ Invalid IP address format');
+        showToast('Invalid IP address format', 'error');
         return;
       }
 
@@ -1037,13 +1056,15 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
     setApplyingNetwork(false);
 
     if (result.success) {
-      alert('✅ Network configuration applied! Pi is rebooting...\n\n' +
-            (networkMode === 'static'
-              ? 'Reconnect using new IP: ' + staticIp
-              : 'Pi will obtain IP via DHCP. Check your router for the new IP.'));
+      showToast(
+        networkMode === 'static'
+          ? `Network configured! Pi rebooting — reconnect via ${staticIp}`
+          : 'Switched to DHCP. Pi rebooting — check router for new IP.',
+        'success'
+      );
       onClose();
     } else {
-      alert('❌ Failed to change network settings: ' + result.error);
+      showToast('Failed to change network settings: ' + result.error, 'error');
     }
   }
 
@@ -1061,18 +1082,18 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
       // Save to Pi's config first
       const result = await window.api.updatePiConfig(pi.ip_address, piConfigUpdates);
       if (!result.success) {
-        alert('❌ Failed to update Pi config: ' + result.error);
+        showToast('Failed to update Pi config: ' + result.error, 'error');
         return;
       }
 
       // Then update local database
       await window.api.updatePi(pi.id, dbUpdates);
 
-      alert('✅ Settings saved!');
+      showToast('Settings saved!', 'success');
       onUpdate();
       onClose();
     } catch (error) {
-      alert('❌ Failed to save: ' + error.message);
+      showToast('Failed to save: ' + error.message, 'error');
     }
   }
 
@@ -1081,9 +1102,9 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
     const result = await window.api.setAutoUpdateSettings(pi.ip_address, newState);
     if (result.success) {
       setAutoUpdateEnabled(newState);
-      alert(newState ? '✅ Auto-updates enabled!' : '❌ Auto-updates disabled!');
+      showToast(newState ? 'Auto-updates enabled!' : 'Auto-updates disabled.', newState ? 'success' : 'info');
     } else {
-      alert('❌ Failed to change auto-update settings: ' + result.error);
+      showToast('Failed to change auto-update settings: ' + result.error, 'error');
     }
   }
 
@@ -1092,9 +1113,9 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
     const result = await window.api.setRebootSettings(pi.ip_address, newState);
     if (result.success) {
       setRebootEnabled(newState);
-      alert(newState ? '✅ Daily reboot enabled!' : '❌ Daily reboot disabled!');
+      showToast(newState ? 'Daily reboot enabled!' : 'Daily reboot disabled.', newState ? 'success' : 'info');
     } else {
-      alert('❌ Failed to change reboot settings: ' + result.error);
+      showToast('Failed to change reboot settings: ' + result.error, 'error');
     }
   }
 
@@ -1105,9 +1126,9 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
     const result = await window.api.updatePiNow(pi.ip_address);
 
     if (result.success) {
-      alert('✅ Update successful! ' + (result.data.output || 'Pi agent restarted.'));
+      showToast('Update successful! Pi agent restarted.', 'success');
     } else {
-      alert('❌ Update failed: ' + result.error);
+      showToast('Update failed: ' + result.error, 'error');
     }
 
     setUpdating(false);
