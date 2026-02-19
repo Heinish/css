@@ -290,7 +290,15 @@ async function activatePlaylist(ip) {
 function setupIpcHandlers() {
   ipcMain.handle('app:getLatestVersion', async () => getLatestVersion());
   ipcMain.handle('app:getVersion', () => app.getVersion());
-  ipcMain.handle('app:checkForUpdates', () => autoUpdater.checkForUpdates());
+  ipcMain.handle('app:checkForUpdates', async () => {
+    try {
+      const result = await autoUpdater.checkForUpdates();
+      // In dev mode electron-updater skips and returns null — treat as up to date
+      if (!result && mainWindow) mainWindow.webContents.send('update:not-available');
+    } catch (err) {
+      if (mainWindow) mainWindow.webContents.send('update:error', { message: err.message });
+    }
+  });
   ipcMain.handle('app:downloadUpdate', () => autoUpdater.downloadUpdate());
   ipcMain.handle('app:installUpdate', () => autoUpdater.quitAndInstall());
   ipcMain.handle('app:openReleasesPage', () => shell.openExternal('https://github.com/Heinish/css/releases'));
