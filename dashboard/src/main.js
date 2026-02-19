@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const FormData = require('form-data');
 const Database = require('./database/db');
+const { autoUpdater } = require('electron-updater');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
@@ -288,6 +289,11 @@ async function activatePlaylist(ip) {
 // IPC Handlers for database operations
 function setupIpcHandlers() {
   ipcMain.handle('app:getLatestVersion', async () => getLatestVersion());
+  ipcMain.handle('app:getVersion', () => app.getVersion());
+  ipcMain.handle('app:checkForUpdates', () => autoUpdater.checkForUpdates());
+  ipcMain.handle('app:downloadUpdate', () => autoUpdater.downloadUpdate());
+  ipcMain.handle('app:installUpdate', () => autoUpdater.quitAndInstall());
+  ipcMain.handle('app:openReleasesPage', () => shell.openExternal('https://github.com/Heinish/css/releases'));
 
   // Pi HTTP operations (done in main process to avoid CSP)
   ipcMain.handle('pi:getStatus', async (event, ip) => {
@@ -448,6 +454,48 @@ function setupIpcHandlers() {
   });
 }
 
+// ===== Auto-Updater Setup =====
+function setupAutoUpdater() {
+  // Don't check for updates in development
+  if (process.env.NODE_ENV === 'development') return;
+
+  autoUpdater.autoDownload = false; // Ask user before downloading
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-available', (info) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('update:available', { version: info.version });
+    }
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    if (mainWindow) {
+      mainWindow.webContents.send('update:not-available');
+    }
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('update:progress', { percent: Math.round(progress.percent) });
+    }
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    if (mainWindow) {
+      mainWindow.webContents.send('update:downloaded');
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    if (mainWindow) {
+      mainWindow.webContents.send('update:error', { message: err.message });
+    }
+  });
+
+  // Check for updates 5 seconds after launch
+  setTimeout(() => autoUpdater.checkForUpdates(), 5000);
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -455,6 +503,7 @@ app.whenReady().then(() => {
   initDatabase();
   setupIpcHandlers();
   createWindow();
+  setupAutoUpdater();
 
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.

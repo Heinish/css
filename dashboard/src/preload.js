@@ -5,6 +5,18 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   // App-level operations
   getLatestVersion: () => ipcRenderer.invoke('app:getLatestVersion'),
+  getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
+  checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
+  downloadUpdate: () => ipcRenderer.invoke('app:downloadUpdate'),
+  installUpdate: () => ipcRenderer.invoke('app:installUpdate'),
+  openReleasesPage: () => ipcRenderer.invoke('app:openReleasesPage'),
+
+  // Update event listeners (main → renderer)
+  onUpdateAvailable: (cb) => ipcRenderer.on('update:available', (_, info) => cb(info)),
+  onUpdateNotAvailable: (cb) => ipcRenderer.on('update:not-available', () => cb()),
+  onUpdateProgress: (cb) => ipcRenderer.on('update:progress', (_, info) => cb(info)),
+  onUpdateDownloaded: (cb) => ipcRenderer.on('update:downloaded', () => cb()),
+  onUpdateError: (cb) => ipcRenderer.on('update:error', (_, info) => cb(info)),
 
   // Pi HTTP operations (via main process to bypass CSP)
   getPiStatus: (ip) => ipcRenderer.invoke('pi:getStatus', ip),

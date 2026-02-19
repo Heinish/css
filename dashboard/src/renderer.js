@@ -60,6 +60,9 @@ function App() {
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const [updateState, setUpdateState] = useState(null); // null | 'available' | 'downloading' | 'ready'
+  const [updateVersion, setUpdateVersion] = useState(null);
+  const [updateProgress, setUpdateProgress] = useState(0);
 
   function showToast(message, type = 'info') {
     const id = Date.now() + Math.random();
@@ -69,6 +72,11 @@ function App() {
 
   useEffect(() => {
     loadData();
+    // Wire up auto-updater events from main process
+    window.api.onUpdateAvailable((info) => { setUpdateVersion(info.version); setUpdateState('available'); });
+    window.api.onUpdateProgress((info) => { setUpdateProgress(info.percent); setUpdateState('downloading'); });
+    window.api.onUpdateDownloaded(() => setUpdateState('ready'));
+    window.api.onUpdateError((info) => showToast('Dashboard update error: ' + info.message, 'error'));
   }, []);
 
   useEffect(() => {
@@ -234,6 +242,21 @@ function App() {
     h('div', { className: 'header' },
       h('h1', null, '🖥️ CSS Dashboard'),
       h('div', { className: 'subtitle' }, `Managing ${pis.length} Raspberry Pi${pis.length !== 1 ? 's' : ''}`)
+    ),
+
+    // Dashboard Update Banner
+    updateState && h('div', { className: `update-banner update-banner-${updateState}` },
+      updateState === 'available' && h('span', null, `Dashboard v${updateVersion} available!`),
+      updateState === 'downloading' && h('span', null, `Downloading update... ${updateProgress}%`),
+      updateState === 'ready' && h('span', null, 'Update downloaded — ready to install!'),
+      updateState === 'available' && h('button', {
+        className: 'btn btn-sm',
+        onClick: () => window.api.downloadUpdate()
+      }, '⬇️ Download'),
+      updateState === 'ready' && h('button', {
+        className: 'btn btn-sm',
+        onClick: () => window.api.installUpdate()
+      }, '🔄 Restart & Install')
     ),
 
     // Main Content

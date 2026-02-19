@@ -531,6 +531,21 @@ button.pi-version-btn:disabled {
     gap: 5px;
 }
 
+/* ===== DASHBOARD UPDATE BANNER ===== */
+.update-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 24px;
+    font-size: 13px;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+.update-banner-available  { background: #1a2e1a; color: #6ee7b7; border-bottom: 1px solid #10b981; }
+.update-banner-downloading { background: #1a1a2e; color: #a5b4fc; border-bottom: 1px solid #6366f1; }
+.update-banner-ready      { background: #2e1a10; color: #fcd34d; border-bottom: 1px solid #f59e0b; }
+.update-banner .btn { padding: 4px 12px; font-size: 12px; }
+
 /* ===== TOAST NOTIFICATIONS ===== */
 .toast-container {
     position: fixed;
