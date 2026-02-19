@@ -63,6 +63,7 @@ function App() {
   const [updateState, setUpdateState] = useState(null); // null | 'available' | 'downloading' | 'ready'
   const [updateVersion, setUpdateVersion] = useState(null);
   const [updateProgress, setUpdateProgress] = useState(0);
+  const [appVersion, setAppVersion] = useState(null);
 
   function showToast(message, type = 'info') {
     const id = Date.now() + Math.random();
@@ -72,6 +73,7 @@ function App() {
 
   useEffect(() => {
     loadData();
+    window.api.getAppVersion().then(v => setAppVersion(v));
     // Wire up auto-updater events from main process
     window.api.onUpdateAvailable((info) => { setUpdateVersion(info.version); setUpdateState('available'); });
     window.api.onUpdateNotAvailable(() => showToast('Dashboard is up to date!', 'success'));
@@ -241,8 +243,11 @@ function App() {
   return h('div', { style: { height: '100%', display: 'flex', flexDirection: 'column' } },
     // Header
     h('div', { className: 'header' },
-      h('h1', null, '🖥️ CSS Dashboard'),
-      h('div', { className: 'subtitle' }, `Managing ${pis.length} Raspberry Pi${pis.length !== 1 ? 's' : ''}`)
+      h('div', { className: 'header-left' },
+        h('h1', null, '🖥️ CSS Dashboard'),
+        h('div', { className: 'subtitle' }, `Managing ${pis.length} Raspberry Pi${pis.length !== 1 ? 's' : ''}`)
+      ),
+      appVersion && h('div', { className: 'header-version' }, `v${appVersion}`)
     ),
 
     // Dashboard Update Banner

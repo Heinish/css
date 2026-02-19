@@ -72,13 +72,32 @@ html, body {
 /* ===== HEADER ===== */
 .header {
     background: linear-gradient(135deg, #1a1040 0%, #2d1f6e 40%, #1a0830 100%);
-    padding: 28px 0;
-    text-align: center;
+    padding: 28px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     color: white;
     box-shadow: 0 4px 32px rgba(0, 0, 0, 0.6);
     position: relative;
     overflow: hidden;
     border-bottom: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.header-left {
+    text-align: center;
+    flex: 1;
+}
+
+.header-version {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 0.5px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
 }
 
 .header::before {
