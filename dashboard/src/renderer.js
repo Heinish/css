@@ -669,13 +669,14 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
 function AddPiDialog({ onAdd, onCancel }) {
   const [name, setName] = useState('');
   const [ip, setIp] = useState('');
+  const [ipError, setIpError] = useState('');
 
   function handleSubmit(e) {
     e.preventDefault();
-    if (!ip) return alert('IP address required!');
+    if (!ip) { setIpError('IP address is required'); return; }
     const validIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) && ip.split('.').every(n => parseInt(n) <= 255);
-    if (!validIp) return alert('❌ Invalid IP address format (e.g. 192.168.1.100)');
-
+    if (!validIp) { setIpError('Invalid format — use e.g. 192.168.1.100'); return; }
+    setIpError('');
     onAdd({
       name: name || `Pi-${ip}`,
       ip_address: ip,
@@ -701,10 +702,10 @@ function AddPiDialog({ onAdd, onCancel }) {
           h('input', {
             type: 'text',
             value: ip,
-            onChange: (e) => setIp(e.target.value),
-            placeholder: 'e.g., 192.168.10.105',
-            required: true
-          })
+            onChange: (e) => { setIp(e.target.value); setIpError(''); },
+            placeholder: 'e.g., 192.168.10.105'
+          }),
+          ipError && h('div', { style: { color: 'var(--danger-color)', fontSize: '12px', marginTop: '4px' } }, ipError)
         ),
         h('div', { className: 'form-actions' },
           h('button', { type: 'button', className: 'btn btn-secondary', onClick: onCancel }, 'Cancel'),
