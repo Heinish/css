@@ -74,6 +74,7 @@ function App() {
     loadData();
     // Wire up auto-updater events from main process
     window.api.onUpdateAvailable((info) => { setUpdateVersion(info.version); setUpdateState('available'); });
+    window.api.onUpdateNotAvailable(() => showToast('Dashboard is up to date!', 'success'));
     window.api.onUpdateProgress((info) => { setUpdateProgress(info.percent); setUpdateState('downloading'); });
     window.api.onUpdateDownloaded(() => setUpdateState('ready'));
     window.api.onUpdateError((info) => showToast('Dashboard update error: ' + info.message, 'error'));
@@ -276,6 +277,11 @@ function App() {
             onClick: () => refreshPiStatus(true),
             disabled: refreshing
           }, refreshing ? '⏳ Refreshing...' : '🔄 Refresh'),
+          h('button', {
+            className: 'btn',
+            onClick: () => window.api.checkForUpdates(),
+            title: 'Check for dashboard updates'
+          }, '⬆️ Check for Updates'),
           h('div', { className: 'toggle-row', style: { padding: '0', margin: '0 4px' } },
             h(ToggleSwitch, { checked: autoRefreshEnabled, onChange: setAutoRefreshEnabled }),
             h('span', { style: { fontSize: '13px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' } }, 'Auto-Refresh')
