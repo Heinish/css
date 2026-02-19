@@ -133,6 +133,7 @@ def get_status():
         'memory_percent': psutil.virtual_memory().percent,
         'temperature': get_cpu_temp(),
         'ip_address': get_ip_address(),
+        'screen_rotation': config.get('screen_rotation', 0),
         'timestamp': datetime.now().isoformat()
     })
 

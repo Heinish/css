@@ -10,7 +10,7 @@ const h = React.createElement;
 
 // ===== Helper Functions =====
 function formatUptime(seconds) {
-  if (!seconds) return 'N/A';
+  if (seconds === null || seconds === undefined) return 'N/A';
 
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
@@ -89,7 +89,7 @@ function App() {
     // Fetch latest version from GitHub (non-blocking)
     window.api.getLatestVersion().then(result => {
       if (result.success) setLatestVersion(result.version);
-    });
+    }).catch(() => {});
   }
 
   async function refreshPiStatus(force) {
@@ -266,8 +266,9 @@ function App() {
       // Pi Grid
       h('div', { className: 'pi-grid' },
         (() => {
-          const filteredPis = selectedRoom
-            ? pis.filter(pi => pi.room_id === parseInt(selectedRoom))
+          const selectedRoomId = selectedRoom ? parseInt(selectedRoom) : null;
+          const filteredPis = selectedRoomId
+            ? pis.filter(pi => pi.room_id === selectedRoomId)
             : pis;
 
           return filteredPis.length === 0
@@ -401,8 +402,7 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
 
     if (result.success) {
       alert('✅ URL changed successfully!');
-      // Refresh to show new URL
-      setTimeout(() => window.location.reload(), 500);
+      onUpdate();
     } else {
       alert('❌ Failed to change URL: ' + result.error);
     }
@@ -673,6 +673,8 @@ function AddPiDialog({ onAdd, onCancel }) {
   function handleSubmit(e) {
     e.preventDefault();
     if (!ip) return alert('IP address required!');
+    const validIp = /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) && ip.split('.').every(n => parseInt(n) <= 255);
+    if (!validIp) return alert('❌ Invalid IP address format (e.g. 192.168.1.100)');
 
     onAdd({
       name: name || `Pi-${ip}`,
@@ -843,7 +845,7 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
   const [activeTab, setActiveTab] = useState('general');
   const [piName, setPiName] = useState(pi.name);
   const [piRoom, setPiRoom] = useState(pi.room_id || '');
-  const [rotation, setRotation] = useState('0');
+  const [rotation, setRotation] = useState(String(pi.screen_rotation || 0));
   const [showPreview, setShowPreview] = useState(false);
   const [screenshot, setScreenshot] = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -1010,8 +1012,8 @@ function PiSettingsDialog({ pi, rooms, onClose, onUpdate }) {
       }
 
       // Basic IP validation
-      const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-      if (!ipRegex.test(staticIp) || !ipRegex.test(netmask) || !ipRegex.test(gateway)) {
+      const validOctets = ip => /^(\d{1,3}\.){3}\d{1,3}$/.test(ip) && ip.split('.').every(n => parseInt(n) <= 255);
+      if (!validOctets(staticIp) || !validOctets(netmask) || !validOctets(gateway)) {
         alert('❌ Invalid IP address format');
         return;
       }

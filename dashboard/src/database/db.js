@@ -23,7 +23,12 @@ class CSSDatabase {
       }
     } catch (error) {
       console.error('Failed to load database:', error);
-      this.data = { pis: [], rooms: [], nextPiId: 1, nextRoomId: 1 };
+      // Back up the corrupted file before resetting
+      try {
+        const backupPath = this.dbPath + '.bak';
+        if (fs.existsSync(this.dbPath)) fs.copyFileSync(this.dbPath, backupPath);
+      } catch (e) {}
+      this.data = { pis: [], rooms: [], urls: [], nextPiId: 1, nextRoomId: 1, nextUrlId: 1, removedPiRooms: {} };
     }
   }
 
