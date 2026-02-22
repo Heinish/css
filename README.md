@@ -240,4 +240,6 @@ cd /opt/css && sudo git -c safe.directory=/opt/css pull origin main && sudo syst
 
 ## 📄 License
 
-MIT
+© 2026 Heinish. All rights reserved.
+
+You may use this software but may not copy, modify, distribute, or sell it without written permission from the author.
