@@ -210,6 +210,29 @@ fi
 echo "Chromium translate fix applied via /etc/chromium.d/, launch script patch, and Preferences JSON (Step 7)"
 
 echo ""
+echo "Step 11: Configuring HDMI for 1920x1080 @ 60Hz..."
+CONFIG_TXT="/boot/firmware/config.txt"
+if [ -f "$CONFIG_TXT" ]; then
+    if grep -q "hdmi_group=" "$CONFIG_TXT"; then
+        echo "  HDMI config already present in $CONFIG_TXT, skipping."
+    else
+        cat >> "$CONFIG_TXT" <<'HDMI_EOF'
+
+# CSS Signage: force 1920x1080 @ 60Hz
+hdmi_force_hotplug=1
+hdmi_group=2
+hdmi_mode=82
+disable_overscan=1
+framebuffer_width=1920
+framebuffer_height=1080
+HDMI_EOF
+        echo "  Appended HDMI 1920x1080@60 settings to $CONFIG_TXT"
+    fi
+else
+    echo "  Warning: $CONFIG_TXT not found — skipping HDMI config."
+fi
+
+echo ""
 echo "======================================"
 echo "Installation Complete!"
 echo "======================================"

@@ -51,3 +51,6 @@ logs/
 *.tmp
 tmp/
 temp/
+
+# Local notes
+COMMANDS.md

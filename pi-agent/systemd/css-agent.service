@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=simple
 User={USER}
 WorkingDirectory=/opt/css-agent
+ExecStartPre=-/bin/bash /opt/css/pi-agent/scripts/ensure-resolution.sh
 ExecStart=/usr/bin/python3 /opt/css-agent/server.py
 Restart=always
 RestartSec=10
