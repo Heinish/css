@@ -1165,9 +1165,62 @@ def apply_saved_rotation():
 
     threading.Thread(target=_apply, daemon=True).start()
 
+def ensure_resolution():
+    """Write boot-time config to force 1920x1080@60Hz.
+
+    KMS systems (vc4-kms-v3d): appends video=HDMI-A-1:1920x1080@60 to cmdline.txt.
+    Legacy systems: appends hdmi_group=2 / hdmi_mode=82 to config.txt.
+    Idempotent — safe to call on every startup. Requires root.
+    """
+    config_txt  = '/boot/firmware/config.txt'
+    cmdline_txt = '/boot/firmware/cmdline.txt'
+    try:
+        with open(config_txt, 'r') as f:
+            config_content = f.read()
+
+        if 'vc4-kms-v3d' in config_content:
+            # Modern KMS driver — hdmi_group/mode are ignored; use video= kernel param
+            print('[ensure-resolution] KMS driver detected — checking cmdline.txt')
+            if not os.path.exists(cmdline_txt):
+                print(f'[ensure-resolution] WARNING: {cmdline_txt} not found')
+                return
+            with open(cmdline_txt, 'r') as f:
+                cmdline = f.read()
+            if 'video=HDMI-A-1:1920x1080' in cmdline:
+                print('[ensure-resolution] cmdline.txt already has 1920x1080 — OK')
+                return
+            cmdline = cmdline.rstrip('\n') + ' video=HDMI-A-1:1920x1080@60\n'
+            with open(cmdline_txt, 'w') as f:
+                f.write(cmdline)
+            print('[ensure-resolution] Added video=HDMI-A-1:1920x1080@60 to cmdline.txt — reboot to apply')
+        else:
+            # Legacy firmware driver
+            print('[ensure-resolution] Legacy driver — checking config.txt')
+            if 'hdmi_group=' in config_content:
+                print('[ensure-resolution] config.txt already has HDMI settings — OK')
+                return
+            with open(config_txt, 'a') as f:
+                f.write('\n# CSS Signage: force 1920x1080 @ 60Hz\n')
+                f.write('hdmi_force_hotplug=1\n')
+                f.write('hdmi_group=2\n')
+                f.write('hdmi_mode=82\n')
+                f.write('disable_overscan=1\n')
+                f.write('framebuffer_width=1920\n')
+                f.write('framebuffer_height=1080\n')
+            print('[ensure-resolution] Appended HDMI 1920x1080@60 to config.txt — reboot to apply')
+
+    except PermissionError:
+        print('[ensure-resolution] WARNING: Permission denied — not running as root?')
+    except Exception as e:
+        print(f'[ensure-resolution] WARNING: {e}')
+
+
 if __name__ == '__main__':
     # Configure Chromium to disable translation (flags + Preferences JSON)
     configure_chromium_preferences()
+
+    # Ensure display is forced to 1920x1080 at boot level
+    ensure_resolution()
 
     # Load port from config
     config = load_config()
