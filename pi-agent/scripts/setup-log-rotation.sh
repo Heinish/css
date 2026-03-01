@@ -33,8 +33,9 @@ journalctl --vacuum-size=50M
 journalctl --vacuum-time=3d
 
 # ===== 2. RSYSLOG RATE LIMITING =====
-echo "Configuring rsyslog rate limiting..."
-cat > /etc/rsyslog.d/10-css-ratelimit.conf <<'EOF'
+if [ -d /etc/rsyslog.d ]; then
+    echo "Configuring rsyslog rate limiting..."
+    cat > /etc/rsyslog.d/10-css-ratelimit.conf <<'EOF'
 # CSS Signage - Rate limit rsyslog to prevent disk filling
 # Allow max 200 messages per 60 seconds, then drop
 $imjournalRatelimitInterval 60
@@ -46,9 +47,10 @@ module(load="imuxsock"
        SysSock.RateLimit.Burst="200"
        SysSock.RateLimit.Severity="4")
 EOF
-
-# Restart rsyslog to apply
-systemctl restart rsyslog 2>/dev/null || true
+    systemctl restart rsyslog 2>/dev/null || true
+else
+    echo "rsyslog not found, skipping rate limiting..."
+fi
 
 # ===== 3. AGGRESSIVE LOGROTATE FOR SYSLOG FILES =====
 echo "Configuring aggressive logrotate..."
