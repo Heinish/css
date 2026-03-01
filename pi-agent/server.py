@@ -82,11 +82,38 @@ def startup_cleanup():
 
     # 5. Journal vacuum
     try:
-        subprocess.run(['journalctl', '--vacuum-size=100M', '--vacuum-time=1week'],
+        subprocess.run(['journalctl', '--vacuum-size=50M', '--vacuum-time=3d'],
                        capture_output=True, timeout=10)
         cleaned.append('journalctl')
     except:
         pass
+
+    # 6. Truncate oversized /var/log files (the biggest disk filler!)
+    # Xorg.0.log alone can grow to 24GB+
+    var_log_files = [
+        '/var/log/syslog', '/var/log/daemon.log', '/var/log/kern.log',
+        '/var/log/messages', '/var/log/auth.log', '/var/log/user.log',
+        '/var/log/debug', '/var/log/Xorg.0.log',
+    ]
+    for logfile in var_log_files:
+        try:
+            if os.path.isfile(logfile) and os.path.getsize(logfile) > 10 * 1024 * 1024:  # > 10MB
+                with open(logfile, 'w') as f:
+                    f.truncate(0)
+                cleaned.append(logfile)
+        except:
+            pass
+
+    # 7. Delete rotated/compressed log files (including Xorg.0.log.old)
+    import glob as glob_mod
+    for pattern in ['/var/log/*.gz', '/var/log/*.1', '/var/log/*.2', '/var/log/*.old',
+                    '/var/log/**/*.gz', '/var/log/**/*.1', '/var/log/**/*.old']:
+        for f in glob_mod.glob(pattern, recursive=True):
+            try:
+                os.unlink(f)
+                cleaned.append(f)
+            except:
+                pass
 
     if cleaned:
         print(f"🧹 Startup cleanup: removed {len(cleaned)} items")
