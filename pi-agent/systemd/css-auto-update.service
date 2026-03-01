@@ -6,8 +6,8 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 User=root
-WorkingDirectory=/opt/css-agent
-ExecStart=/bin/bash -c 'git pull origin main && systemctl restart css-agent'
+WorkingDirectory=/opt/css
+ExecStart=/bin/bash -c 'git -C /opt/css -c safe.directory=/opt/css fetch origin main && git -C /opt/css -c safe.directory=/opt/css reset --hard origin/main && systemctl restart css-agent'
 StandardOutput=journal
 StandardError=journal
 
