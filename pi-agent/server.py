@@ -363,9 +363,15 @@ def update():
     try:
         # Use /opt/css (parent repo) or /opt/css-agent if it's a direct git clone
         git_dir = '/opt/css' if os.path.exists('/opt/css/.git') else '/opt/css-agent'
+        git = ['git', '-C', git_dir, '-c', f'safe.directory={git_dir}']
 
+        # Fetch latest, then hard reset to origin/main
+        # This avoids "local changes would be overwritten" errors on Pis that
+        # were modified directly (e.g. install script edits on the device).
+        subprocess.run(git + ['fetch', 'origin', 'main'],
+                       capture_output=True, text=True, timeout=30)
         result = subprocess.run(
-            ['git', '-C', git_dir, '-c', f'safe.directory={git_dir}', 'pull'],
+            git + ['reset', '--hard', 'origin/main'],
             capture_output=True,
             text=True,
             timeout=30

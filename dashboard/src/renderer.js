@@ -244,10 +244,12 @@ function App() {
     // Header
     h('div', { className: 'header' },
       h('div', { className: 'header-left' },
-        h('h1', null, '🖥️ CSS Dashboard'),
-        h('div', { className: 'subtitle' }, `Managing ${pis.length} Raspberry Pi${pis.length !== 1 ? 's' : ''}`)
-      ),
-      appVersion && h('div', { className: 'header-version' }, `v${appVersion}`)
+        h('div', null,
+          h('h1', null, '🖥️ CSS Dashboard'),
+          h('div', { className: 'subtitle' }, `${pis.length} Raspberry Pi${pis.length !== 1 ? 's' : ''}`)
+        ),
+        appVersion && h('div', { className: 'header-version' }, `v${appVersion}`)
+      )
     ),
 
     // Dashboard Update Banner
@@ -267,39 +269,49 @@ function App() {
 
     // Main Content
     h('div', { className: 'main-content' },
+      // Toolbar - Management Actions
       h('div', { className: 'toolbar' },
-        h('div', { className: 'toolbar-left' },
-          h('button', { className: 'btn btn-primary', onClick: () => { setShowAddDialog(true); setModalOpen(true); } }, '➕ Add Pi'),
-          h('button', { className: 'btn', onClick: () => { setShowRoomManager(true); setModalOpen(true); } }, '🏢 Manage Rooms'),
-          h('button', { className: 'btn', onClick: () => { setShowUrlManager(true); setModalOpen(true); } }, '🔗 Manage URLs'),
-          h('button', {
-            className: 'btn btn-warning',
-            onClick: handleRestartAllBrowsers,
-            disabled: restartingAll || pis.filter(p => p.online).length === 0
-          }, restartingAll ? '⏳ Restarting All...' : '🔄 Restart All Browsers'),
-          h('button', {
-            className: 'btn',
-            onClick: () => refreshPiStatus(true),
-            disabled: refreshing
-          }, refreshing ? '⏳ Refreshing...' : '🔄 Refresh'),
-          h('button', {
-            className: 'btn',
-            onClick: () => window.api.checkForUpdates(),
-            title: 'Check for dashboard updates'
-          }, '⬆️ Check for Updates'),
-          h('div', { className: 'toggle-row', style: { padding: '0', margin: '0 4px' } },
-            h(ToggleSwitch, { checked: autoRefreshEnabled, onChange: setAutoRefreshEnabled }),
-            h('span', { style: { fontSize: '13px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' } }, 'Auto-Refresh')
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 18px', background: 'var(--bg-toolbar)', borderRadius: '10px', border: '1px solid var(--border-color)', boxShadow: '0 2px 12px var(--shadow-color)', gap: '16px', flexWrap: 'wrap' } },
+          h('div', { className: 'toolbar-left' },
+            h('button', { className: 'btn btn-primary', onClick: () => { setShowAddDialog(true); setModalOpen(true); } }, '➕ Add Pi'),
+            h('button', { className: 'btn', onClick: () => { setShowRoomManager(true); setModalOpen(true); } }, '🏢 Manage Rooms'),
+            h('button', { className: 'btn', onClick: () => { setShowUrlManager(true); setModalOpen(true); } }, '🔗 Manage URLs')
+          ),
+          h('div', { className: 'toolbar-right' },
+            h('label', null, '🏢 Filter:'),
+            h('select', {
+              value: selectedRoom,
+              onChange: (e) => setSelectedRoom(e.target.value)
+            },
+              h('option', { value: '' }, 'All Rooms'),
+              rooms.map(room => h('option', { value: room.id, key: room.id }, room.name))
+            )
           )
         ),
-        h('div', { className: 'toolbar-right' },
-          h('label', null, '🏢 Filter:'),
-          h('select', {
-            value: selectedRoom,
-            onChange: (e) => setSelectedRoom(e.target.value)
-          },
-            h('option', { value: '' }, 'All Rooms'),
-            rooms.map(room => h('option', { value: room.id, key: room.id }, room.name))
+        // Toolbar - System Actions
+        h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 18px', background: 'var(--bg-toolbar)', borderRadius: '10px', border: '1px solid var(--border-color)', boxShadow: '0 2px 12px var(--shadow-color)', gap: '16px', flexWrap: 'wrap' } },
+          h('div', { className: 'toolbar-left' },
+            h('button', {
+              className: 'btn btn-warning',
+              onClick: handleRestartAllBrowsers,
+              disabled: restartingAll || pis.filter(p => p.online).length === 0
+            }, restartingAll ? '⏳ Restarting All...' : '🔄 Restart All Browsers'),
+            h('button', {
+              className: 'btn',
+              onClick: () => refreshPiStatus(true),
+              disabled: refreshing
+            }, refreshing ? '⏳ Refreshing...' : '🔄 Refresh'),
+            h('button', {
+              className: 'btn',
+              onClick: () => window.api.checkForUpdates(),
+              title: 'Check for dashboard updates'
+            }, '⬆️ Check for Updates')
+          ),
+          h('div', { className: 'toolbar-right' },
+            h('div', { className: 'toggle-row', style: { padding: '0', margin: '0' } },
+              h(ToggleSwitch, { checked: autoRefreshEnabled, onChange: setAutoRefreshEnabled }),
+              h('span', { style: { fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' } }, 'Auto-Refresh')
+            )
           )
         )
       ),
@@ -601,41 +613,50 @@ function PiCard({ pi, rooms, urls, latestVersion, onRemove, onUpdate, setModalOp
             h('span', null, pi.current_url.substring(0, 50) + (pi.current_url.length > 50 ? '...' : ''))
           ),
 
-          // Actions
+          // Actions — grouped by function
           h('div', { className: 'pi-actions' },
-            h('button', {
-              className: 'btn btn-sm',
-              onClick: handleChangeUrl,
-              disabled: !pi.online || changing
-            }, changing ? '⏳ Changing...' : '🔗 Change URL'),
-            h('button', {
-              className: 'btn btn-sm',
-              onClick: handleUploadImage,
-              disabled: !pi.online || uploading
-            }, uploading ? '⏳ Uploading...' : '🖼️ Upload Image'),
-            h('button', {
-              className: 'btn btn-sm',
-              onClick: handleRestartBrowser,
-              disabled: !pi.online || restarting
-            }, restarting ? '⏳ Restarting...' : '🔄 Restart'),
-            h('button', {
-              className: 'btn btn-sm btn-warning',
-              onClick: handleReboot,
-              disabled: !pi.online || rebooting
-            }, rebooting ? '⏳ Rebooting...' : '⚡ Reboot'),
-            h('button', {
-              className: 'btn btn-sm',
-              onClick: handlePreview,
-              disabled: !pi.online || loadingPreview
-            }, loadingPreview ? '⏳ Loading...' : '📸 Preview'),
-            h('button', {
-              className: 'btn btn-sm',
-              onClick: () => { setShowSettings(true); setModalOpen(true); }
-            }, '⚙️ Settings'),
-            h('button', {
-              className: 'btn btn-sm btn-danger',
-              onClick: onRemove
-            }, '🗑️ Remove')
+            // Primary Actions
+            h('div', { className: 'pi-action-group triple' },
+              h('button', {
+                className: 'btn btn-sm btn-info',
+                onClick: handleChangeUrl,
+                disabled: !pi.online || changing
+              }, changing ? '⏳ Changing...' : '🔗 Change URL'),
+              h('button', {
+                className: 'btn btn-sm btn-info',
+                onClick: handleUploadImage,
+                disabled: !pi.online || uploading
+              }, uploading ? '⏳ Uploading...' : '🖼️ Upload Image'),
+              h('button', {
+                className: 'btn btn-sm btn-secondary',
+                onClick: handlePreview,
+                disabled: !pi.online || loadingPreview
+              }, loadingPreview ? '⏳ Loading...' : '📸 Preview')
+            ),
+            // System Actions
+            h('div', { className: 'pi-action-group' },
+              h('button', {
+                className: 'btn btn-sm btn-success',
+                onClick: handleRestartBrowser,
+                disabled: !pi.online || restarting
+              }, restarting ? '⏳ Restarting...' : '🔄 Restart'),
+              h('button', {
+                className: 'btn btn-sm btn-warning',
+                onClick: handleReboot,
+                disabled: !pi.online || rebooting
+              }, rebooting ? '⏳ Rebooting...' : '⚡ Reboot')
+            ),
+            // Danger Zone
+            h('div', { className: 'pi-action-group' },
+              h('button', {
+                className: 'btn btn-sm',
+                onClick: () => { setShowSettings(true); setModalOpen(true); }
+              }, '⚙️ Settings'),
+              h('button', {
+                className: 'btn btn-sm btn-danger',
+                onClick: onRemove
+              }, '🗑️ Remove')
+            )
           )
         )
       )
