@@ -210,6 +210,26 @@ fi
 echo "Chromium translate fix applied via /etc/chromium.d/, launch script patch, and Preferences JSON (Step 7)"
 
 echo ""
+echo "Step 11: Configuring HDMI for 1920x1080..."
+CONFIG_FILE="/boot/firmware/config.txt"
+
+if ! grep -q "hdmi_group=" "$CONFIG_FILE"; then
+    cat >> "$CONFIG_FILE" <<HDMI_EOF
+
+# CSS Signage: Force 1920x1080 @ 60Hz
+hdmi_force_hotplug=1
+hdmi_group=2
+hdmi_mode=82
+disable_overscan=1
+framebuffer_width=1920
+framebuffer_height=1080
+HDMI_EOF
+    echo "Added 1920x1080 HDMI configuration"
+else
+    echo "HDMI settings already present, skipping..."
+fi
+
+echo ""
 echo "======================================"
 echo "Installation Complete!"
 echo "======================================"

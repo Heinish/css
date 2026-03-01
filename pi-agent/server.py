@@ -1165,9 +1165,31 @@ def apply_saved_rotation():
 
     threading.Thread(target=_apply, daemon=True).start()
 
+def ensure_display_resolution():
+    """Ensure display is set to 1920x1080 by creating X11 config if missing"""
+    xorg_dir = '/usr/share/X11/xorg.conf.d'
+    conf_file = os.path.join(xorg_dir, '10-resolution.conf')
+
+    if not os.path.exists(conf_file):
+        try:
+            os.makedirs(xorg_dir, exist_ok=True)
+            with open(conf_file, 'w') as f:
+                f.write('Section "Screen"\n')
+                f.write('  Identifier "HDMI-1"\n')
+                f.write('  SubSection "Display"\n')
+                f.write('    Modes "1920x1080"\n')
+                f.write('  EndSubSection\n')
+                f.write('EndSection\n')
+            print("✅ Created X11 resolution config (1920x1080)")
+        except Exception as e:
+            print(f"⚠️ Could not create resolution config: {e}")
+    else:
+        print("✅ X11 resolution config already exists")
+
 if __name__ == '__main__':
     # Configure Chromium to disable translation (flags + Preferences JSON)
     configure_chromium_preferences()
+    ensure_display_resolution()
 
     # Load port from config
     config = load_config()
