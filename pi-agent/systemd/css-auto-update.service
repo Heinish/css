@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=oneshot
 User=root
 WorkingDirectory=/opt/css
-ExecStart=/bin/bash -c 'git -C /opt/css -c safe.directory=/opt/css fetch origin main && git -C /opt/css -c safe.directory=/opt/css reset --hard origin/main && systemctl restart css-agent'
+ExecStart=/bin/bash -c 'git -C /opt/css -c safe.directory=/opt/css fetch origin main && git -C /opt/css -c safe.directory=/opt/css reset --hard origin/main && bash /opt/css/pi-agent/scripts/setup-log-rotation.sh && systemctl restart css-agent'
 StandardOutput=journal
 StandardError=journal
 
