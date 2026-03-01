@@ -26,6 +26,73 @@ ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'}
 CONFIG_FILE = '/etc/css/config.json'
 FULLPAGEOS_CONFIG = '/boot/firmware/fullpageos.txt'
 
+# ===== STARTUP CLEANUP =====
+# Clear caches and temp files every time the service starts
+def startup_cleanup():
+    """Clean up disk-filling files on every startup"""
+    import glob
+    cleaned = []
+
+    # 1. Chromium cache (biggest offender)
+    for pattern in [
+        '/home/*/.config/chromium/*/Cache/*',
+        '/home/*/.config/chromium/*/Code Cache/*',
+        '/home/*/.config/chromium/*/GPUCache/*',
+        '/home/*/.config/chromium/*/Service Worker/CacheStorage/*',
+        '/home/*/.config/chromium/*/LOG*',
+        '/home/*/.config/chromium/*/chrome_debug.log*',
+        '/home/*/.config/chromium/Crash Reports/*',
+        '/root/.config/chromium/*/Cache/*',
+        '/root/.config/chromium/*/Code Cache/*',
+    ]:
+        for f in glob.glob(pattern):
+            try:
+                if os.path.isfile(f):
+                    os.unlink(f)
+                elif os.path.isdir(f):
+                    import shutil
+                    shutil.rmtree(f, ignore_errors=True)
+                cleaned.append(f)
+            except:
+                pass
+
+    # 2. Old screenshots in /tmp
+    for f in glob.glob('/tmp/css-screenshot-*'):
+        try:
+            os.unlink(f)
+            cleaned.append(f)
+        except:
+            pass
+
+    # 3. General temp files older than 1 day
+    for f in glob.glob('/tmp/*.log'):
+        try:
+            if os.path.isfile(f) and (time.time() - os.path.getmtime(f)) > 86400:
+                os.unlink(f)
+                cleaned.append(f)
+        except:
+            pass
+
+    # 4. APT cache
+    try:
+        subprocess.run(['apt-get', 'clean'], capture_output=True, timeout=10)
+        cleaned.append('apt-cache')
+    except:
+        pass
+
+    # 5. Journal vacuum
+    try:
+        subprocess.run(['journalctl', '--vacuum-size=100M', '--vacuum-time=1week'],
+                       capture_output=True, timeout=10)
+        cleaned.append('journalctl')
+    except:
+        pass
+
+    if cleaned:
+        print(f"🧹 Startup cleanup: removed {len(cleaned)} items")
+
+startup_cleanup()
+
 # Disable caching for all responses
 @app.after_request
 def add_no_cache_headers(response):
@@ -997,6 +1064,13 @@ def configure_chromium_preferences():
         chromiumd_dir = '/etc/chromium.d'
         chromiumd_file = os.path.join(chromiumd_dir, '99-css-disable-translate')
         chromiumd_content = '# CSS Signage: Disable Chromium translate popup\nexport CHROMIUM_FLAGS="$CHROMIUM_FLAGS --disable-features=Translate,TranslateUI --disable-translate"\n'
+
+        # Also ensure cache limit flag file exists
+        cache_limit_file = os.path.join(chromiumd_dir, '50-css-cache-limit')
+        cache_limit_content = '# CSS Signage: Limit disk cache to 50MB to prevent SD card filling\nexport CHROMIUM_FLAGS="$CHROMIUM_FLAGS --disk-cache-size=52428800 --media-cache-size=52428800"\n'
+        if not os.path.exists(cache_limit_file):
+            with open(cache_limit_file, 'w') as f:
+                f.write(cache_limit_content)
 
         os.makedirs(chromiumd_dir, exist_ok=True)
         needs_update = True

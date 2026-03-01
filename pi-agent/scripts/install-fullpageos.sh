@@ -130,6 +130,12 @@ export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --disable-features=Translate,TranslateUI 
 CHROMIUMD_EOF
 echo "  Created /etc/chromium.d/99-css-disable-translate"
 
+cat > /etc/chromium.d/50-css-cache-limit <<'CHROMIUMD_EOF'
+# CSS Signage: Limit disk cache to 50MB to prevent SD card filling
+export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --disk-cache-size=52428800 --media-cache-size=52428800"
+CHROMIUMD_EOF
+echo "  Created /etc/chromium.d/50-css-cache-limit"
+
 # === FIX 2: Patch FullPageOS start_chromium_browser script ===
 # FullPageOS has a flags array with --disable-features=TranslateUI (only UI, not the engine).
 # If there are TWO --disable-features= flags, Chromium only uses the LAST one.
